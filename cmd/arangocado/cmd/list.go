@@ -49,9 +49,9 @@ func runList(c *cobra.Command, args []string) {
 	ctx := context.Background()
 
 	for _, bc := range backups {
-		log.Printf("name: %s\n", bc.Name)
-
 		b := newBackup(bc, config.S3, m)
+
+		log.Printf("name: %s\n", b.Name)
 
 		if err := b.List(ctx); err != nil {
 			log.Fatalln("Unable to get list if backups", err)

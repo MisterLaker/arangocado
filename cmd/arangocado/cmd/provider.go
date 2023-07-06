@@ -23,13 +23,15 @@ func newMinioClient(config S3) (*minio.Client, error) {
 }
 
 func newBackup(config Backup, s3 S3, m *minio.Client) *backup.Backup {
-	name := config.Name
-	directory := "/tmp/arangocado_" + name
+	name := "arangocado"
+	path := name
 
-	if name == "" {
-		name = "arangocado"
-		directory = "/tmp/arangocado"
+	if config.Name != "" {
+		name = config.Name
+		path = "arangocado_" + config.Name
 	}
+
+	directory := fmt.Sprintf("/tmp/%s_%s/", path, config.Database)
 
 	return &backup.Backup{
 		Name:        name,
