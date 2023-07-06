@@ -29,6 +29,10 @@ type Backup struct {
 	Minio *minio.Client
 }
 
+func (b *Backup) RemoveCache() error {
+	return os.RemoveAll(b.Directory)
+}
+
 func (b *Backup) Create(ctx context.Context) error {
 	args := map[string]any{
 		"server.endpoint":  b.Host,

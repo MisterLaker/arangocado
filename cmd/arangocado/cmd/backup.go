@@ -36,6 +36,10 @@ func runBackup(c *cobra.Command, args []string) {
 
 	b := newBackup(config, m)
 
+	if err := b.RemoveCache(); err != nil {
+		log.Fatalln("Unable to remove cache", err)
+	}
+
 	if err := b.Create(ctx); err != nil {
 		log.Fatalln("Unable to create backup", err)
 	}
