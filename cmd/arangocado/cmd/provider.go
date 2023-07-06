@@ -4,7 +4,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
-	"github.com/MisterLaker/arangodump/internal/backup"
+	"github.com/MisterLaker/arangocado/internal/backup"
 )
 
 func newMinioClient(config S3) (*minio.Client, error) {

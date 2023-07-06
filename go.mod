@@ -1,4 +1,4 @@
-module github.com/MisterLaker/arangodump
+module github.com/MisterLaker/arangocado
 
 go 1.20
 

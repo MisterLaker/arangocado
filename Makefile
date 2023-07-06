@@ -12,7 +12,7 @@ endef
 
 .PHONY: build
 build:
-	 $(call compile,arangodump)
+	 $(call compile,arangocado)
 
 .PHONY: test
 test:

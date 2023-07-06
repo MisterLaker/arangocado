@@ -5,11 +5,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/MisterLaker/arangodump/cmd/arangodump/cmd"
+	"github.com/MisterLaker/arangocado/cmd/arangocado/cmd"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "arangodump",
+	Use:   "arangocado",
 	Short: "arangodb backup tool",
 }
 
