@@ -3,12 +3,12 @@ package backup
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"time"
-	"log"
 
 	"github.com/minio/minio-go/v7"
 	"golang.org/x/sync/errgroup"
