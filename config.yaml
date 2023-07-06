@@ -1,0 +1,9 @@
+arango:
+  host: "http+tcp://host.docker.internal:8529"
+  database: "apollo"
+  user: "deeper"
+  password: "test"
+  directory: "/tmp/arangodump"
+
+s3:
+  workers: 4
