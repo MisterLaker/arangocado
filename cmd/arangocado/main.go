@@ -17,6 +17,7 @@ func init() {
 	rootCmd.AddCommand(cmd.CmdAuto)
 	rootCmd.AddCommand(cmd.CmdBackup)
 	rootCmd.AddCommand(cmd.CmdCleaUp)
+	rootCmd.AddCommand(cmd.CmdList)
 }
 
 func main() {

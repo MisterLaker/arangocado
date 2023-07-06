@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+	"log"
 
 	"github.com/minio/minio-go/v7"
 	"golang.org/x/sync/errgroup"
@@ -100,17 +101,17 @@ func (b *Backup) UploadFiles(ctx context.Context, ts string, files []string) err
 		objectName := fmt.Sprintf("%s/%s-%s/%s", b.Name, b.Database, ts, name)
 		path := filepath.Join(b.Directory, name)
 
-		fmt.Println("file: ", path)
-		fmt.Println("path: ", objectName)
+		log.Println("file: ", path)
+		log.Println("path: ", objectName)
 
 		_, err := b.Minio.FPutObject(ctx, b.Bucket, objectName, path, minio.PutObjectOptions{})
 		if err != nil {
-			fmt.Println("upload error: ", err)
+			log.Println("upload error: ", err)
 
 			continue
 		}
 
-		fmt.Println("Successfully uploaded file: ", path)
+		log.Println("Successfully uploaded file: ", path)
 	}
 
 	return nil
@@ -140,7 +141,7 @@ func (b *Backup) Upload(ctx context.Context) error {
 	ln := len(files)
 	chunkSize := (ln + b.Workers - 1) / b.Workers
 
-	fmt.Println("upload files ", "files: ", ln, "chunk_size: ", chunkSize)
+	log.Println("upload files ", "files: ", ln, "chunk_size: ", chunkSize)
 
 	g, ctx := errgroup.WithContext(ctx)
 
@@ -167,7 +168,7 @@ func (b *Backup) Remove(ctx context.Context, keys []string) error {
 			return err
 		}
 
-		fmt.Println("removing: ", k, "files: ", len(objects))
+		log.Println("removing: ", k, "files: ", len(objects))
 
 		for _, name := range objects {
 			if err := b.Minio.RemoveObject(ctx, b.Bucket, name, minio.RemoveObjectOptions{}); err != nil {
@@ -200,7 +201,7 @@ func (b *Backup) listObjects(ctx context.Context, prefix string) ([]string, erro
 
 func pprint(items []string) {
 	for _, k := range items {
-		fmt.Printf("\t- %s\n", k)
+		log.Printf("\t- %s\n", k)
 	}
 }
 
@@ -219,10 +220,10 @@ func (b *Backup) CleanUp(ctx context.Context) error {
 		removeList = backups[b.HistorySize:]
 	}
 
-	fmt.Println("backups: ")
+	log.Println("backups:")
 	pprint(backups)
 
-	fmt.Println("backups to remove: ")
+	log.Println("backups to remove: ")
 	pprint(removeList)
 
 	if len(removeList) > 0 {
@@ -230,6 +231,18 @@ func (b *Backup) CleanUp(ctx context.Context) error {
 			return err
 		}
 	}
+
+	return nil
+}
+
+func (b *Backup) List(ctx context.Context) error {
+	backups, err := b.listObjects(ctx, fmt.Sprintf("%s/%s-", b.Name, b.Database))
+	if err != nil {
+		return err
+	}
+
+	log.Println("backups: ")
+	pprint(backups)
 
 	return nil
 }
