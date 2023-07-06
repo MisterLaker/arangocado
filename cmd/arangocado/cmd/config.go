@@ -14,7 +14,6 @@ type Backup struct {
 	Password    string
 	Database    string
 	Collections []string
-	Directory   string
 	HistorySize int
 }
 
@@ -28,8 +27,8 @@ type S3 struct {
 }
 
 type Scheduler struct {
+	Backup             `mapstructure:",squash"`
 	Schedule           string
-	Backup             Backup
 	TriggerImmediately bool
 }
 

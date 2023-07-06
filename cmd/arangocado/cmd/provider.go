@@ -23,20 +23,22 @@ func newMinioClient(config S3) (*minio.Client, error) {
 }
 
 func newBackup(config Backup, s3 S3, m *minio.Client) *backup.Backup {
-	return &backup.Backup{
-		Name: func() string {
-			if config.Name != "" {
-				return config.Name
-			}
+	name := config.Name
+	directory := "/tmp/arangocado_" + name
 
-			return "arangocado"
-		}(),
+	if name == "" {
+		name = "arangocado"
+		directory = "/tmp/arangocado"
+	}
+
+	return &backup.Backup{
+		Name:        name,
 		Host:        config.Host,
 		User:        config.User,
 		Password:    config.Password,
 		Database:    config.Database,
 		Collections: config.Collections,
-		Directory:   config.Directory,
+		Directory:   directory,
 		HistorySize: config.HistorySize,
 		Workers:     s3.Workers,
 		Bucket:      s3.Bucket,
@@ -49,6 +51,8 @@ func newBackupSchedule(config Scheduler, s3 S3, m *minio.Client) (*scheduler.Bac
 	if err != nil {
 		return nil, fmt.Errorf("schedule: %s - %w", config.Schedule, err)
 	}
+
+	config.Backup.Name = config.Name
 
 	return &scheduler.BackupSchedule{
 		Schedule: schedule,
