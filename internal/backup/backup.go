@@ -80,7 +80,8 @@ func (b *Backup) UploadFiles(ctx context.Context, ts string, files []string) err
 		objectName := fmt.Sprintf("%s/%s-%s/%s", b.Name, b.Database, ts, name)
 		path := filepath.Join(b.Directory, name)
 
-		fmt.Println("file: ", objectName, ", path: ", path)
+		fmt.Println("file: ", path)
+		fmt.Println("path: ", objectName)
 
 		_, err := b.Minio.FPutObject(ctx, b.Bucket, objectName, path, minio.PutObjectOptions{})
 		if err != nil {
@@ -146,9 +147,9 @@ func (b *Backup) remove(ctx context.Context, keys []string) error {
 			return err
 		}
 
-		for _, name := range objects {
-			fmt.Println("removing: ", name)
+		fmt.Println("removing: ", k, "files: ", len(objects))
 
+		for _, name := range objects {
 			if err := b.Minio.RemoveObject(ctx, b.Bucket, name, minio.RemoveObjectOptions{}); err != nil {
 				return err
 			}
