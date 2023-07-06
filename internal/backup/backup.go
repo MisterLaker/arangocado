@@ -35,6 +35,7 @@ func (b *Backup) Create(ctx context.Context) error {
 		"server.username":  b.User,
 		"server.password":  b.Password,
 		"server.database":  b.Database,
+		"collection":       b.Collections,
 		"output-directory": b.Directory,
 		"overwrite":        true,
 	}
@@ -55,17 +56,16 @@ func makeCmdArgs(args map[string]any) []string {
 	var items []string
 
 	for k, v := range args {
-		var a string
-
-		if _, ok := v.(bool); ok {
-			a = fmt.Sprintf("--%s", k)
+		switch t := v.(type) {
+		case bool:
+			items = append(items, fmt.Sprintf("--%s", k))
+		case []string:
+			for _, kv := range t {
+				items = append(items, fmt.Sprintf("--%s=%s", k, kv))
+			}
+		default:
+			items = append(items, fmt.Sprintf("--%s=%v", k, v))
 		}
-
-		if v != nil {
-			a = fmt.Sprintf("--%s=%v", k, v)
-		}
-
-		items = append(items, a)
 	}
 
 	return items

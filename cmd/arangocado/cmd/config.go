@@ -5,6 +5,7 @@ import (
 )
 
 type ArangoDB struct {
+	Name            string
 	Host            string
 	Port            string
 	User            string
