@@ -13,6 +13,7 @@ import (
 )
 
 type Backup struct {
+	Name        string
 	Host        string
 	Port        string
 	User        string
@@ -69,19 +70,19 @@ func makeCmdArgs(args map[string]any) []string {
 
 func (b *Backup) UploadFiles(ctx context.Context, ts string, files []string) error {
 	for _, name := range files {
-		objectName := fmt.Sprintf("%s/%s", ts, name)
+		objectName := fmt.Sprintf("%s/%s-%s/%s", b.Name, b.Database, ts, name)
 		path := filepath.Join(b.Directory, name)
 
-		fmt.Println("objectName: ", objectName, ", path: ", path)
+		fmt.Println("file: ", objectName, ", path: ", path)
 
-		uploadInfo, err := b.Minio.FPutObject(ctx, b.Bucket, objectName, path, minio.PutObjectOptions{})
+		_, err := b.Minio.FPutObject(ctx, b.Bucket, objectName, path, minio.PutObjectOptions{})
 		if err != nil {
 			fmt.Println("upload error: ", err)
 
 			continue
 		}
 
-		fmt.Println("Successfully uploaded object: ", uploadInfo)
+		fmt.Println("Successfully uploaded file: ", path)
 	}
 
 	return nil

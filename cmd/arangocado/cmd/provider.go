@@ -16,6 +16,7 @@ func newMinioClient(config S3) (*minio.Client, error) {
 
 func newBackup(config *Config, m *minio.Client) *backup.Backup {
 	return &backup.Backup{
+		Name:        "arangocado",
 		Host:        config.Arango.Host,
 		User:        config.Arango.User,
 		Password:    config.Arango.Password,
