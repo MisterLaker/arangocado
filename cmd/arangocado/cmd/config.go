@@ -1,19 +1,21 @@
 package cmd
 
 import (
+	"time"
+
 	"github.com/spf13/viper"
 )
 
-type ArangoDB struct {
-	Name            string
-	Host            string
-	Port            string
-	User            string
-	Password        string
-	Database        string
-	Collections     []string
-	Directory       string
-	KeepLastBackups int
+type Backup struct {
+	Name        string
+	Host        string
+	Port        string
+	User        string
+	Password    string
+	Database    string
+	Collections []string
+	Directory   string
+	HistorySize int
 }
 
 type S3 struct {
@@ -25,9 +27,26 @@ type S3 struct {
 	Workers   int
 }
 
+type Scheduler struct {
+	Schedule           string
+	Backup             Backup
+	TriggerImmediately bool
+}
+
 type Config struct {
-	Arango ArangoDB
-	S3     S3
+	S3            S3
+	Backups       []Scheduler
+	CheckInterval time.Duration
+}
+
+func (c *Config) GetBackup(name string) *Backup {
+	for _, b := range c.Backups {
+		if b.Backup.Name == "" || b.Backup.Name == name {
+			return &b.Backup
+		}
+	}
+
+	return nil
 }
 
 func loadConfig(path string) (*Config, error) {

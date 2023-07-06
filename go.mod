@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/minio/minio-go/v7 v7.0.59
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	golang.org/x/sync v0.1.0

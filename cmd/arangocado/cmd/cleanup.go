@@ -14,6 +14,7 @@ var CmdCleaUp = &cobra.Command{
 }
 
 func init() {
+	CmdCleaUp.PersistentFlags().StringVar(&cfg.Name, "n", "arangocado", "backup name")
 	CmdCleaUp.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "config.yaml", "config file")
 }
 
@@ -28,9 +29,14 @@ func runCleanUp(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to create S3 client", err)
 	}
 
+	backup := config.GetBackup(cfg.Name)
+	if backup == nil {
+		log.Fatalln("Unable to find backup", cfg.Name)
+	}
+
 	ctx := context.Background()
 
-	b := newBackup(config, m)
+	b := newBackup(*backup, config.S3, m)
 
 	if err := b.CleanUp(ctx); err != nil {
 		log.Fatalln("Unable to remove backups", err)
