@@ -7,22 +7,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var CmdExport = &cobra.Command{
-	Use:   "export",
+var CmdBackup = &cobra.Command{
+	Use:   "backup",
 	Short: "run arangodb dump",
-	Run:   runExport,
+	Run:   runBackup,
 }
 
-var exportCfg struct {
+var cfg struct {
 	ConfigFile string
 }
 
 func init() {
-	CmdExport.PersistentFlags().StringVar(&exportCfg.ConfigFile, "config", "config.yaml", "config file")
+	CmdBackup.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "config.yaml", "config file")
 }
 
-func runExport(c *cobra.Command, args []string) {
-	config, err := loadConfig(exportCfg.ConfigFile)
+func runBackup(c *cobra.Command, args []string) {
+	config, err := loadConfig(cfg.ConfigFile)
 	if err != nil {
 		log.Fatalln("Unable to load config", err)
 	}

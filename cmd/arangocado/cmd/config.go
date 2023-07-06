@@ -5,13 +5,14 @@ import (
 )
 
 type ArangoDB struct {
-	Host        string
-	Port        string
-	User        string
-	Password    string
-	Database    string
-	Collections []string
-	Directory   string
+	Host            string
+	Port            string
+	User            string
+	Password        string
+	Database        string
+	Collections     []string
+	Directory       string
+	KeepLastBackups int
 }
 
 type S3 struct {

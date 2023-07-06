@@ -16,15 +16,16 @@ func newMinioClient(config S3) (*minio.Client, error) {
 
 func newBackup(config *Config, m *minio.Client) *backup.Backup {
 	return &backup.Backup{
-		Name:        "arangocado",
-		Host:        config.Arango.Host,
-		User:        config.Arango.User,
-		Password:    config.Arango.Password,
-		Database:    config.Arango.Database,
-		Collections: config.Arango.Collections,
-		Directory:   config.Arango.Directory,
-		Workers:     config.S3.Workers,
-		Bucket:      config.S3.Bucket,
-		Minio:       m,
+		Name:            "arangocado",
+		Host:            config.Arango.Host,
+		User:            config.Arango.User,
+		Password:        config.Arango.Password,
+		Database:        config.Arango.Database,
+		Collections:     config.Arango.Collections,
+		Directory:       config.Arango.Directory,
+		KeepLastBackups: config.Arango.KeepLastBackups,
+		Workers:         config.S3.Workers,
+		Bucket:          config.S3.Bucket,
+		Minio:           m,
 	}
 }

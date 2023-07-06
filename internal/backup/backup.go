@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -13,17 +14,19 @@ import (
 )
 
 type Backup struct {
-	Name        string
-	Host        string
-	Port        string
-	User        string
-	Password    string
-	Database    string
-	Collections []string
-	Directory   string
-	Bucket      string
-	Workers     int
-	Minio       *minio.Client
+	Name            string
+	Host            string
+	Port            string
+	User            string
+	Password        string
+	Database        string
+	Collections     []string
+	Directory       string
+	Bucket          string
+	Workers         int
+	KeepLastBackups int
+
+	Minio *minio.Client
 }
 
 func (b *Backup) Create(ctx context.Context) error {
@@ -130,4 +133,68 @@ func (b *Backup) Upload(ctx context.Context) error {
 	}
 
 	return g.Wait()
+}
+
+func (b *Backup) remove(ctx context.Context, keys []string) error {
+	for _, k := range keys {
+		objects, err := b.listObjects(ctx, k)
+		if err != nil {
+			return err
+		}
+
+		for _, name := range objects {
+			fmt.Println("removing: ", name)
+
+			if err := b.Minio.RemoveObject(ctx, b.Bucket, name, minio.RemoveObjectOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (b *Backup) listObjects(ctx context.Context, prefix string) ([]string, error) {
+	objectCh := b.Minio.ListObjects(ctx, b.Bucket, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: false,
+	})
+
+	var items []string
+
+	for object := range objectCh {
+		if object.Err != nil {
+			return nil, object.Err
+		}
+
+		items = append(items, object.Key)
+	}
+
+	return items, nil
+}
+
+func (b *Backup) CleanUp(ctx context.Context) error {
+	backups, err := b.listObjects(ctx, fmt.Sprintf("%s/%s-", b.Name, b.Database))
+	if err != nil {
+		return err
+	}
+
+	sort.Sort(sort.Reverse(sort.StringSlice(backups)))
+
+	var removeList []string
+
+	if len(backups) > b.KeepLastBackups {
+		removeList = backups[b.KeepLastBackups:]
+	}
+
+	fmt.Println("backups: ", backups)
+	fmt.Println("backups to remove: ", removeList)
+
+	if len(removeList) > 0 {
+		if err := b.remove(ctx, removeList); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
