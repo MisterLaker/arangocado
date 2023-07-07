@@ -47,10 +47,6 @@ func (b *Backup) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := b.CleanUp(ctx); err != nil {
-		return err
-	}
-
 	return nil
 }
 

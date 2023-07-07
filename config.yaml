@@ -1,9 +1,21 @@
-arango:
-  host: "http+tcp://host.docker.internal:8529"
-  database: "apollo"
-  user: "deeper"
-  password: "test"
-  directory: "/tmp/arangodump"
+
+checkInterval: "10s"
 
 s3:
   workers: 4
+  endpoint:
+  accessKey:
+  secretKey:
+  bucket:
+
+backups:
+  - name:
+    schedule: "0 * * * *"
+    triggerImmediately: false
+    host: "http+tcp://127.0.0.1:8529"
+    database: "test"
+    user: "root"
+    password: ""
+    historySize: 5
+    collections:
+      - some

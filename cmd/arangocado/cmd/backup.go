@@ -38,15 +38,7 @@ func runBackup(c *cobra.Command, args []string) {
 
 	b := newBackup(*backup, config.S3, m)
 
-	if err := b.RemoveCache(); err != nil {
-		log.Fatalln("Unable to remove cache", err)
-	}
-
-	if err := b.Arangodump(ctx); err != nil {
+	if err := b.Run(ctx); err != nil {
 		log.Fatalln("Unable to create backup", err)
-	}
-
-	if err := b.Upload(ctx); err != nil {
-		log.Fatalln("Unable to upload backup", err)
 	}
 }

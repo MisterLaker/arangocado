@@ -41,6 +41,10 @@ func (s *Scheduler) Run(ctx context.Context) {
 				log.Println("Unable to run backup", err)
 			}
 
+			if err := b.CleanUp(ctx); err != nil {
+				log.Println("Unable to clean up backups", err)
+			}
+
 			b.SetNextUpdate(t)
 
 			log.Println("backup", b.Name, "nextUpdateAt", b.NextUpdateAt)

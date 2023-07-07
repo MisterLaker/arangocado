@@ -19,8 +19,6 @@ WORKDIR ${APP_PATH}
 COPY go.mod go.sum $APP_PATH/
 RUN go mod download
 
-RUN go mod download
-
 COPY . $APP_PATH
 
 RUN make build
