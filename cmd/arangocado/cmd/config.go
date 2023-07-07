@@ -15,6 +15,7 @@ type Backup struct {
 	Database    string
 	Collections []string
 	HistorySize int
+	CacheDir    string
 }
 
 type S3 struct {
@@ -36,6 +37,7 @@ type Config struct {
 	S3            S3
 	Backups       []Scheduler
 	CheckInterval time.Duration
+	CacheDir      string
 }
 
 func (c *Config) GetBackup(name string) *Backup {

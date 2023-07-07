@@ -25,14 +25,14 @@ func newMinioClient(config S3) (*minio.Client, error) {
 
 func newBackup(config Backup, s3 S3, m *minio.Client) *backup.Backup {
 	name := "arangocado"
-	path := name
-
 	if config.Name != "" {
 		name = config.Name
-		path = "arangocado_" + config.Name
 	}
 
-	directory := fmt.Sprintf("/tmp/%s_%s/", path, config.Database)
+	cacheDir := "/tmp"
+	if config.CacheDir != "" {
+		cacheDir = config.CacheDir
+	}
 
 	workers := runtime.NumCPU()
 	if s3.Workers > 0 {
@@ -46,7 +46,7 @@ func newBackup(config Backup, s3 S3, m *minio.Client) *backup.Backup {
 		Password:    config.Password,
 		Database:    config.Database,
 		Collections: config.Collections,
-		Directory:   directory,
+		CacheDir:    cacheDir,
 		HistorySize: config.HistorySize,
 		Workers:     workers,
 		Bucket:      s3.Bucket,
@@ -74,6 +74,8 @@ func newScheduler(config *Config, m *minio.Client) (*scheduler.Scheduler, error)
 	t := time.Now()
 
 	for _, bs := range config.Backups {
+		bs.CacheDir = config.CacheDir
+
 		b, err := newBackupSchedule(bs, config.S3, m)
 		if err != nil {
 			return nil, err

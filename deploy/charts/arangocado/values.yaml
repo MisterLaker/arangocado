@@ -52,6 +52,9 @@ tolerations: []
 
 affinity: {}
 
+checkInterval: "10s"
+cacheDir: "/tmp"
+
 s3:
   endpoint:
   accessKey:

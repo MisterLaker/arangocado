@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -22,7 +23,7 @@ type Backup struct {
 	Password    string
 	Database    string
 	Collections []string
-	Directory   string
+	CacheDir    string
 	Bucket      string
 	Workers     int
 	HistorySize int
@@ -31,62 +32,65 @@ type Backup struct {
 }
 
 func (b *Backup) Run(ctx context.Context) error {
-	if err := b.RemoveCache(); err != nil {
+	ts := time.Now().Format("20060102T1504")
+	cacheDir := b.GetCacheDir(ts)
+
+	if err := b.Arangodump(ctx, cacheDir); err != nil {
 		return err
 	}
 
-	if err := b.Arangodump(ctx); err != nil {
+	if err := b.Upload(ctx, ts, cacheDir); err != nil {
 		return err
 	}
 
-	if err := b.Upload(ctx); err != nil {
-		return err
-	}
-
-	if err := b.RemoveCache(); err != nil {
+	if err := b.RemoveCache(cacheDir); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+func (b *Backup) GetCacheDir(key string) string {
+	// /tmp/<name>_<db>-<key>
+	return fmt.Sprintf("%s/%s_%s-%s", b.CacheDir, b.Name, b.Database, key)
+}
+
 type RestoreOptions struct {
 	Key      string
+	CacheDir string
 	Database string
 }
 
 func (b *Backup) Restore(ctx context.Context, options *RestoreOptions) error {
-	if err := b.RemoveCache(); err != nil {
-		return err
-	}
-
 	if err := b.Download(ctx, options.Key); err != nil {
 		return err
 	}
+
+	options.CacheDir = filepath.Join(b.CacheDir, getLocalPath(options.Key))
 
 	if err := b.Arangorestore(ctx, options); err != nil {
 		return err
 	}
 
-	if err := b.RemoveCache(); err != nil {
+	if err := b.RemoveCache(options.CacheDir); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (b *Backup) RemoveCache() error {
-	return os.RemoveAll(b.Directory)
+func (b *Backup) RemoveCache(cacheDir string) error {
+	return os.RemoveAll(cacheDir)
 }
 
-func (b *Backup) Arangodump(ctx context.Context) error {
+func (b *Backup) Arangodump(ctx context.Context, cacheDir string) error {
 	args := map[string]any{
 		"server.endpoint":  b.Host,
 		"server.username":  b.User,
 		"server.password":  b.Password,
 		"server.database":  b.Database,
 		"collection":       b.Collections,
-		"output-directory": b.Directory,
+		"output-directory": cacheDir,
 		"overwrite":        true,
 	}
 
@@ -114,7 +118,7 @@ func (b *Backup) Arangorestore(ctx context.Context, options *RestoreOptions) err
 		"server.password": b.Password,
 		"server.database": db,
 		"collection":      b.Collections,
-		"input-directory": filepath.Join(b.Directory, options.Key),
+		"input-directory": options.CacheDir,
 		"create-database": true,
 		"overwrite":       true,
 	}
@@ -150,10 +154,10 @@ func makeCmdArgs(args map[string]any) []string {
 	return items
 }
 
-func (b *Backup) UploadFiles(ctx context.Context, ts string, files []string) error {
+func (b *Backup) UploadFiles(ctx context.Context, key, cacheDir string, files []string) error {
 	for _, name := range files {
-		objectName := fmt.Sprintf("%s/%s-%s/%s", b.Name, b.Database, ts, name)
-		path := filepath.Join(b.Directory, name)
+		objectName := fmt.Sprintf("%s/%s-%s/%s", b.Name, b.Database, key, name)
+		path := filepath.Join(cacheDir, name)
 
 		log.Println("file: ", path)
 		log.Println("path: ", objectName)
@@ -166,26 +170,6 @@ func (b *Backup) UploadFiles(ctx context.Context, ts string, files []string) err
 		}
 
 		log.Println("Successfully uploaded file: ", path)
-	}
-
-	return nil
-}
-
-func (b *Backup) DownloadFiles(ctx context.Context, files []string) error {
-	for _, name := range files {
-		path := filepath.Join(b.Directory, name)
-
-		log.Println("file: ", path)
-		log.Println("path: ", name)
-
-		err := b.Minio.FGetObject(ctx, b.Bucket, name, path, minio.GetObjectOptions{})
-		if err != nil {
-			log.Println("download error: ", err)
-
-			continue
-		}
-
-		log.Println("Successfully downloaded file: ", path)
 	}
 
 	return nil
@@ -204,13 +188,11 @@ func listFiles(root string) ([]string, error) {
 	return files, err
 }
 
-func (b *Backup) Upload(ctx context.Context) error {
-	files, err := listFiles(b.Directory)
+func (b *Backup) Upload(ctx context.Context, key, cacheDir string) error {
+	files, err := listFiles(cacheDir)
 	if err != nil {
 		return err
 	}
-
-	ts := time.Now().Format("20060102T1504")
 
 	ln := len(files)
 	chunkSize := (ln + b.Workers - 1) / b.Workers
@@ -228,11 +210,37 @@ func (b *Backup) Upload(ctx context.Context) error {
 		}
 
 		g.Go(func() error {
-			return b.UploadFiles(ctx, ts, files[i:end])
+			return b.UploadFiles(ctx, key, cacheDir, files[i:end])
 		})
 	}
 
 	return g.Wait()
+}
+
+func getLocalPath(s string) string {
+	return strings.Replace(s, "/", "_", 1)
+}
+
+func (b *Backup) DownloadFiles(ctx context.Context, files []string) error {
+	for _, name := range files {
+		localPath := getLocalPath(name)
+
+		path := fmt.Sprintf("%s/%s", b.CacheDir, localPath)
+
+		log.Println("file: ", path)
+		log.Println("path: ", name)
+
+		err := b.Minio.FGetObject(ctx, b.Bucket, name, path, minio.GetObjectOptions{})
+		if err != nil {
+			log.Println("download error: ", err)
+
+			continue
+		}
+
+		log.Println("Successfully downloaded file: ", path)
+	}
+
+	return nil
 }
 
 func (b *Backup) Download(ctx context.Context, key string) error {
