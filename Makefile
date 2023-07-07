@@ -18,9 +18,16 @@ build:
 test:
 	@go test -v ./...
 
+container: version ?= 0.1.0
 container:
 	docker-buildx build \
 		--platform linux/amd64,linux/arm64/v8 \
-		-t mrlaker/arangocado:0.1.0 \
+		-t mrlaker/arangocado:$(version) \
 		--push \
 		.
+
+container-dev:
+	docker build -t arangocado:local --target devel .
+
+up:
+	docker run -v ${PWD}:/opt/arangocado --rm -it arangocado:local bash

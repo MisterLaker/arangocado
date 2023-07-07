@@ -19,6 +19,7 @@ func init() {
 	rootCmd.AddCommand(cmd.CmdCleaUp)
 	rootCmd.AddCommand(cmd.CmdList)
 	rootCmd.AddCommand(cmd.CmdRemove)
+	rootCmd.AddCommand(cmd.CmdRestore)
 }
 
 func main() {

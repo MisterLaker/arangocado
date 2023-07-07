@@ -9,7 +9,7 @@ import (
 
 var CmdBackup = &cobra.Command{
 	Use:   "backup",
-	Short: "run arangodb dump",
+	Short: "create backup dump",
 	Run:   runBackup,
 }
 
@@ -42,7 +42,7 @@ func runBackup(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to remove cache", err)
 	}
 
-	if err := b.Create(ctx); err != nil {
+	if err := b.Arangodump(ctx); err != nil {
 		log.Fatalln("Unable to create backup", err)
 	}
 

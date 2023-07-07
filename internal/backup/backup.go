@@ -35,11 +35,15 @@ func (b *Backup) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := b.Create(ctx); err != nil {
+	if err := b.Arangodump(ctx); err != nil {
 		return err
 	}
 
 	if err := b.Upload(ctx); err != nil {
+		return err
+	}
+
+	if err := b.RemoveCache(); err != nil {
 		return err
 	}
 
@@ -50,11 +54,31 @@ func (b *Backup) Run(ctx context.Context) error {
 	return nil
 }
 
+func (b *Backup) Restore(ctx context.Context, options *RestoreOptions) error {
+	if err := b.RemoveCache(); err != nil {
+		return err
+	}
+
+	if err := b.Download(ctx, options.Key); err != nil {
+		return err
+	}
+
+	if err := b.Arangorestore(ctx, options); err != nil {
+		return err
+	}
+
+	if err := b.RemoveCache(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (b *Backup) RemoveCache() error {
 	return os.RemoveAll(b.Directory)
 }
 
-func (b *Backup) Create(ctx context.Context) error {
+func (b *Backup) Arangodump(ctx context.Context) error {
 	args := map[string]any{
 		"server.endpoint":  b.Host,
 		"server.username":  b.User,
@@ -66,6 +90,39 @@ func (b *Backup) Create(ctx context.Context) error {
 	}
 
 	cmd := exec.CommandContext(ctx, "arangodump", makeCmdArgs(args)...)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type RestoreOptions struct {
+	Key      string
+	Database string
+}
+
+func (b *Backup) Arangorestore(ctx context.Context, options *RestoreOptions) error {
+	db := b.Database
+	if options.Database != "" {
+		db = options.Database
+	}
+
+	args := map[string]any{
+		"server.endpoint": b.Host,
+		"server.username": b.User,
+		"server.password": b.Password,
+		"server.database": db,
+		"input-directory": filepath.Join(b.Directory, options.Key),
+		"create-database": true,
+		"overwrite":       true,
+	}
+
+	cmd := exec.CommandContext(ctx, "arangorestore", makeCmdArgs(args)...)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -117,6 +174,26 @@ func (b *Backup) UploadFiles(ctx context.Context, ts string, files []string) err
 	return nil
 }
 
+func (b *Backup) DownloadFiles(ctx context.Context, files []string) error {
+	for _, name := range files {
+		path := filepath.Join(b.Directory, name)
+
+		log.Println("file: ", path)
+		log.Println("path: ", name)
+
+		err := b.Minio.FGetObject(ctx, b.Bucket, name, path, minio.GetObjectOptions{})
+		if err != nil {
+			log.Println("download error: ", err)
+
+			continue
+		}
+
+		log.Println("Successfully downloaded file: ", path)
+	}
+
+	return nil
+}
+
 func listFiles(root string) ([]string, error) {
 	var files []string
 
@@ -155,6 +232,35 @@ func (b *Backup) Upload(ctx context.Context) error {
 
 		g.Go(func() error {
 			return b.UploadFiles(ctx, ts, files[i:end])
+		})
+	}
+
+	return g.Wait()
+}
+
+func (b *Backup) Download(ctx context.Context, key string) error {
+	files, err := b.listObjects(ctx, key)
+	if err != nil {
+		return err
+	}
+
+	ln := len(files)
+	chunkSize := (ln + b.Workers - 1) / b.Workers
+
+	log.Println("downloading: ", key, "files: ", ln, "chunk_size: ", chunkSize)
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	for i := 0; i < ln; i += chunkSize {
+		i := i
+		end := i + chunkSize
+
+		if end > ln {
+			end = ln
+		}
+
+		g.Go(func() error {
+			return b.DownloadFiles(ctx, files[i:end])
 		})
 	}
 

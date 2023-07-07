@@ -22,26 +22,6 @@ func New(checkIterval time.Duration, backups []*BackupSchedule) *Scheduler {
 	}
 }
 
-func (s *Scheduler) run(ctx context.Context, b *BackupSchedule) error {
-	if err := b.RemoveCache(); err != nil {
-		return err
-	}
-
-	if err := b.Create(ctx); err != nil {
-		return err
-	}
-
-	if err := b.Upload(ctx); err != nil {
-		return err
-	}
-
-	if err := b.CleanUp(ctx); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (s *Scheduler) Run(ctx context.Context) {
 	for {
 		select {
@@ -54,9 +34,9 @@ func (s *Scheduler) Run(ctx context.Context) {
 
 		items := s.backups.Filter(t)
 
-		log.Println("run", "backups", len(items))
-
 		for _, b := range items {
+			log.Println("run backup", b.Name)
+
 			if err := b.Run(ctx); err != nil {
 				log.Println("Unable to run backup", err)
 			}
