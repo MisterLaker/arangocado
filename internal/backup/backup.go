@@ -54,6 +54,11 @@ func (b *Backup) Run(ctx context.Context) error {
 	return nil
 }
 
+type RestoreOptions struct {
+	Key      string
+	Database string
+}
+
 func (b *Backup) Restore(ctx context.Context, options *RestoreOptions) error {
 	if err := b.RemoveCache(); err != nil {
 		return err
@@ -101,11 +106,6 @@ func (b *Backup) Arangodump(ctx context.Context) error {
 	return nil
 }
 
-type RestoreOptions struct {
-	Key      string
-	Database string
-}
-
 func (b *Backup) Arangorestore(ctx context.Context, options *RestoreOptions) error {
 	db := b.Database
 	if options.Database != "" {
@@ -117,6 +117,7 @@ func (b *Backup) Arangorestore(ctx context.Context, options *RestoreOptions) err
 		"server.username": b.User,
 		"server.password": b.Password,
 		"server.database": db,
+		"collection":      b.Collections,
 		"input-directory": filepath.Join(b.Directory, options.Key),
 		"create-database": true,
 		"overwrite":       true,
@@ -346,6 +347,9 @@ func (b *Backup) List(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// sort by date
+	sort.Sort(sort.Reverse(sort.StringSlice(backups)))
 
 	log.Println("backups: ")
 	pprint(backups)
