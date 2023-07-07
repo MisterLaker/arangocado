@@ -9,7 +9,7 @@ data:
     checkInterval: "{{ .Values.checkInterval }}"
 
     s3:
-      {{- toYaml .Values.S3 | nindent 6 }}
+      {{- toYaml .Values.s3 | nindent 6 }}
 
     backups:
       {{- toYaml .Values.backups | nindent 6 }}

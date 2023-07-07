@@ -1,8 +1,5 @@
 
-checkInterval: "10s"
-
 s3:
-  workers: 4
   endpoint:
   accessKey:
   secretKey:

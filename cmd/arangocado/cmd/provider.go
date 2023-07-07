@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -33,6 +34,11 @@ func newBackup(config Backup, s3 S3, m *minio.Client) *backup.Backup {
 
 	directory := fmt.Sprintf("/tmp/%s_%s/", path, config.Database)
 
+	workers := runtime.NumCPU()
+	if s3.Workers > 0 {
+		workers = s3.Workers
+	}
+
 	return &backup.Backup{
 		Name:        name,
 		Host:        config.Host,
@@ -42,7 +48,7 @@ func newBackup(config Backup, s3 S3, m *minio.Client) *backup.Backup {
 		Collections: config.Collections,
 		Directory:   directory,
 		HistorySize: config.HistorySize,
-		Workers:     s3.Workers,
+		Workers:     workers,
 		Bucket:      s3.Bucket,
 		Minio:       m,
 	}

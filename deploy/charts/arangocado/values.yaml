@@ -1,9 +1,6 @@
 # Default values for arangocado.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
-
-replicaCount: 1
-
 image:
   repository: mrlaker/arangocado
   pullPolicy: IfNotPresent
@@ -54,3 +51,18 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+s3:
+  endpoint:
+  accessKey:
+  secretKey:
+  bucket:
+
+backups:
+  - name:
+    schedule: "30 * * * *"
+    host: "http+tcp://127.0.0.1:8529"
+    database:
+    user:
+    password:
+    historySize: 5

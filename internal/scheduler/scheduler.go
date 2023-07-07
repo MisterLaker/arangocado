@@ -16,6 +16,10 @@ type Scheduler struct {
 }
 
 func New(checkIterval time.Duration, backups []*BackupSchedule) *Scheduler {
+	if checkIterval == 0 {
+		checkIterval = 10 * time.Second
+	}
+
 	return &Scheduler{
 		checkIterval: checkIterval,
 		backups:      timeList(backups),
