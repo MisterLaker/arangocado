@@ -5,7 +5,7 @@ FROM golang:1.20.5-bookworm AS devel
 COPY --from=arango /usr/bin/arangodump /usr/bin
 COPY --from=arango /etc/arangodb3/arangodump.conf /etc/arangodb3/arangodump.conf
 
-ENV APP_PATH /go/src/devel
+ENV APP_PATH /opt/arangocado
 
 WORKDIR ${APP_PATH}
 
@@ -17,3 +17,15 @@ RUN go mod download
 COPY . $APP_PATH
 
 RUN make build
+
+FROM alpine:3.18
+
+RUN apk --no-cache add ca-certificates libc6-compat
+
+WORKDIR /opt/arangocado
+
+COPY --from=arango /usr/bin/arangodump /usr/bin
+COPY --from=arango /etc/arangodb3/arangodump.conf /etc/arangodb3/arangodump.conf
+
+COPY --from=devel /opt/arangocado/build/* /opt/arangocado/
+COPY --from=devel /opt/arangocado/config.yaml /opt/arangocado/config.yaml
