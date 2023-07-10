@@ -3,11 +3,12 @@ package cmd
 import (
 	"time"
 
+	"github.com/mcuadros/go-defaults"
 	"github.com/spf13/viper"
 )
 
 type Backup struct {
-	Name        string
+	Name        string `default:"arangocado"`
 	Host        string
 	Port        string
 	User        string
@@ -28,7 +29,7 @@ type S3 struct {
 }
 
 type Scheduler struct {
-	Backup             `mapstructure:",squash"`
+	Backup             `mapstructure:",squash"	`
 	Schedule           string
 	TriggerImmediately bool
 }
@@ -36,16 +37,12 @@ type Scheduler struct {
 type Config struct {
 	S3            S3
 	Backups       []Scheduler
-	CheckInterval time.Duration
-	CacheDir      string
+	CheckInterval time.Duration `default:"10s"`
+	CacheDir      string        `default:"/tmp"`
 }
 
 func (c *Config) GetBackup(name string) *Backup {
 	for _, b := range c.Backups {
-		if b.Backup.Name == "" {
-			b.Backup.Name = "arangocado"
-		}
-
 		if b.Backup.Name == name {
 			return &b.Backup
 		}
@@ -65,6 +62,13 @@ func loadConfig(path string) (*Config, error) {
 
 	if err := viper.Unmarshal(&conf); err != nil {
 		return nil, err
+	}
+
+	defaults.SetDefaults(&conf)
+
+	for key := range conf.Backups {
+		conf.Backups[key].Backup.CacheDir = conf.CacheDir
+
 	}
 
 	return &conf, nil
