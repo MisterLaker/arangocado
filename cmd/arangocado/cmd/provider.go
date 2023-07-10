@@ -74,6 +74,10 @@ func newScheduler(config *Config, m *minio.Client) (*scheduler.Scheduler, error)
 	t := time.Now()
 
 	for _, bs := range config.Backups {
+		if bs.Schedule == "" {
+			continue
+		}
+
 		bs.CacheDir = config.CacheDir
 
 		b, err := newBackupSchedule(bs, config.S3, m)

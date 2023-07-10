@@ -123,6 +123,8 @@ func (b *Backup) Arangorestore(ctx context.Context, options *RestoreOptions) err
 		"overwrite":       true,
 	}
 
+	log.Println("arangorestore", "database:", db, "cache dir:", options.CacheDir)
+
 	cmd := exec.CommandContext(ctx, "arangorestore", makeCmdArgs(args)...)
 
 	cmd.Stdout = os.Stdout

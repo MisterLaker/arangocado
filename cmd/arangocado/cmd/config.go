@@ -42,7 +42,11 @@ type Config struct {
 
 func (c *Config) GetBackup(name string) *Backup {
 	for _, b := range c.Backups {
-		if b.Backup.Name == "" || b.Backup.Name == name {
+		if b.Backup.Name == "" {
+			b.Backup.Name = "arangocado"
+		}
+
+		if b.Backup.Name == name {
 			return &b.Backup
 		}
 	}
