@@ -31,7 +31,7 @@ func runBackup(c *cobra.Command, args []string) {
 
 	backup := config.GetBackup(cfg.Name)
 	if backup == nil {
-		log.Fatalln("Unable to find backup", cfg.Name)
+		log.Fatalln("Unable to find backup: ", cfg.Name)
 	}
 
 	ctx := context.Background()

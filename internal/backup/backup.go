@@ -85,13 +85,14 @@ func (b *Backup) RemoveCache(cacheDir string) error {
 
 func (b *Backup) Arangodump(ctx context.Context, cacheDir string) error {
 	args := map[string]any{
-		"server.endpoint":  b.Host,
-		"server.username":  b.User,
-		"server.password":  b.Password,
-		"server.database":  b.Database,
-		"collection":       b.Collections,
-		"output-directory": cacheDir,
-		"overwrite":        true,
+		"server.endpoint":            b.Host,
+		"server.username":            b.User,
+		"server.password":            b.Password,
+		"server.database":            b.Database,
+		"collection":                 b.Collections,
+		"output-directory":           cacheDir,
+		"overwrite":                  true,
+		"include-system-collections": true,
 	}
 
 	cmd := exec.CommandContext(ctx, "arangodump", makeCmdArgs(args)...)
@@ -113,14 +114,15 @@ func (b *Backup) Arangorestore(ctx context.Context, options *RestoreOptions) err
 	}
 
 	args := map[string]any{
-		"server.endpoint": b.Host,
-		"server.username": b.User,
-		"server.password": b.Password,
-		"server.database": db,
-		"collection":      b.Collections,
-		"input-directory": options.CacheDir,
-		"create-database": true,
-		"overwrite":       true,
+		"server.endpoint":            b.Host,
+		"server.username":            b.User,
+		"server.password":            b.Password,
+		"server.database":            db,
+		"collection":                 b.Collections,
+		"input-directory":            options.CacheDir,
+		"create-database":            true,
+		"overwrite":                  true,
+		"include-system-collections": true,
 	}
 
 	log.Println("arangorestore", "database:", db, "cache dir:", options.CacheDir)
