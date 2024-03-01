@@ -28,12 +28,12 @@ func runAuto(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to load config", err)
 	}
 
-	m, err := newMinioClient(config.S3)
+	sr, err := newStorageRegistry(config)
 	if err != nil {
-		log.Fatalln("Unable to create S3 client", err)
+		log.Fatalln("Unable to create storages", err)
 	}
 
-	s, err := newScheduler(config, m)
+	s, err := newScheduler(config, sr)
 	if err != nil {
 		log.Fatalln("Unable to create scheduler", err)
 	}

@@ -11,8 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/minio/minio-go/v7"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/MisterLaker/arangocado/internal/storages"
 )
 
 type Backup struct {
@@ -24,11 +25,9 @@ type Backup struct {
 	Database    string
 	Collections []string
 	CacheDir    string
-	Bucket      string
 	Workers     int
 	HistorySize int
-
-	Minio *minio.Client
+	Storage     storages.Storage
 }
 
 func (b *Backup) Run(ctx context.Context) error {
@@ -158,27 +157,6 @@ func makeCmdArgs(args map[string]any) []string {
 	return items
 }
 
-func (b *Backup) UploadFiles(ctx context.Context, key, cacheDir string, files []string) error {
-	for _, name := range files {
-		objectName := fmt.Sprintf("%s/%s-%s/%s", b.Name, b.Database, key, name)
-		path := filepath.Join(cacheDir, name)
-
-		log.Println("file: ", path)
-		log.Println("path: ", objectName)
-
-		_, err := b.Minio.FPutObject(ctx, b.Bucket, objectName, path, minio.PutObjectOptions{})
-		if err != nil {
-			log.Println("upload error: ", err)
-
-			continue
-		}
-
-		log.Println("Successfully uploaded file: ", path)
-	}
-
-	return nil
-}
-
 func listFiles(root string) ([]string, error) {
 	var files []string
 
@@ -214,7 +192,7 @@ func (b *Backup) Upload(ctx context.Context, key, cacheDir string) error {
 		}
 
 		g.Go(func() error {
-			return b.UploadFiles(ctx, key, cacheDir, files[i:end])
+			return b.Storage.Upload(ctx, b.Name, b.Database, key, cacheDir, files[i:end])
 		})
 	}
 
@@ -225,30 +203,8 @@ func getLocalPath(s string) string {
 	return strings.Replace(s, "/", "_", 1)
 }
 
-func (b *Backup) DownloadFiles(ctx context.Context, files []string) error {
-	for _, name := range files {
-		localPath := getLocalPath(name)
-
-		path := fmt.Sprintf("%s/%s", b.CacheDir, localPath)
-
-		log.Println("file: ", path)
-		log.Println("path: ", name)
-
-		err := b.Minio.FGetObject(ctx, b.Bucket, name, path, minio.GetObjectOptions{})
-		if err != nil {
-			log.Println("download error: ", err)
-
-			continue
-		}
-
-		log.Println("Successfully downloaded file: ", path)
-	}
-
-	return nil
-}
-
 func (b *Backup) Download(ctx context.Context, key string) error {
-	files, err := b.listObjects(ctx, key)
+	files, err := b.Storage.GetList(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -269,7 +225,7 @@ func (b *Backup) Download(ctx context.Context, key string) error {
 		}
 
 		g.Go(func() error {
-			return b.DownloadFiles(ctx, files[i:end])
+			return b.Storage.Download(ctx, b.CacheDir, files[i:end])
 		})
 	}
 
@@ -278,40 +234,19 @@ func (b *Backup) Download(ctx context.Context, key string) error {
 
 func (b *Backup) Remove(ctx context.Context, keys []string) error {
 	for _, k := range keys {
-		objects, err := b.listObjects(ctx, k)
+		files, err := b.Storage.GetList(ctx, k)
 		if err != nil {
 			return err
 		}
 
-		log.Println("removing: ", k, "files: ", len(objects))
+		log.Println("removing: ", k, "files: ", len(files))
 
-		for _, name := range objects {
-			if err := b.Minio.RemoveObject(ctx, b.Bucket, name, minio.RemoveObjectOptions{}); err != nil {
-				return err
-			}
+		if err := b.Storage.Remove(ctx, files); err != nil {
+			return err
 		}
 	}
 
 	return nil
-}
-
-func (b *Backup) listObjects(ctx context.Context, prefix string) ([]string, error) {
-	objectCh := b.Minio.ListObjects(ctx, b.Bucket, minio.ListObjectsOptions{
-		Prefix:    prefix,
-		Recursive: false,
-	})
-
-	var items []string
-
-	for object := range objectCh {
-		if object.Err != nil {
-			return nil, object.Err
-		}
-
-		items = append(items, object.Key)
-	}
-
-	return items, nil
 }
 
 func pprint(items []string) {
@@ -321,7 +256,7 @@ func pprint(items []string) {
 }
 
 func (b *Backup) CleanUp(ctx context.Context) error {
-	backups, err := b.listObjects(ctx, fmt.Sprintf("%s/%s-", b.Name, b.Database))
+	backups, err := b.Storage.GetList(ctx, fmt.Sprintf("%s/%s-", b.Name, b.Database))
 	if err != nil {
 		return err
 	}
@@ -351,7 +286,7 @@ func (b *Backup) CleanUp(ctx context.Context) error {
 }
 
 func (b *Backup) List(ctx context.Context) error {
-	backups, err := b.listObjects(ctx, fmt.Sprintf("%s/%s-", b.Name, b.Database))
+	backups, err := b.Storage.GetList(ctx, fmt.Sprintf("%s/%s-", b.Name, b.Database))
 	if err != nil {
 		return err
 	}

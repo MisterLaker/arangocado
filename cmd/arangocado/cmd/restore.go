@@ -35,9 +35,9 @@ func runRestore(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to load config", err)
 	}
 
-	m, err := newMinioClient(config.S3)
+	sr, err := newStorageRegistry(config)
 	if err != nil {
-		log.Fatalln("Unable to create S3 client", err)
+		log.Fatalln("Unable to create storages", err)
 	}
 
 	bc := config.GetBackup(restoreCfg.Name)
@@ -47,7 +47,10 @@ func runRestore(c *cobra.Command, args []string) {
 
 	ctx := context.Background()
 
-	b := newBackup(*bc, config.S3, m)
+	b, err := newBackup(*bc, sr)
+	if err != nil {
+		log.Fatalln("Unable to init backup", err)
+	}
 
 	o := &backup.RestoreOptions{
 		Key:      restoreCfg.TS,

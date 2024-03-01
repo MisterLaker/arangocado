@@ -1,6 +1,6 @@
-FROM arangodb/arangodb:3.10.8 AS arango
+FROM arangodb/arangodb:3.11.8 AS arango
 
-FROM golang:1.20.5-bookworm AS devel
+FROM golang:1.21.7-bookworm AS devel
 
 COPY --from=arango /usr/bin/arangodump /usr/bin
 COPY --from=arango /usr/bin/arangorestore /usr/bin
@@ -9,7 +9,7 @@ COPY --from=arango /etc/arangodb3/arangorestore.conf /etc/arangodb3/arangorestor
 
 ENV APP_PATH /opt/arangocado
 
-ENV LINTER_VERSION v1.53.3
+ENV LINTER_VERSION v1.56.2
 
 RUN set -ex \
     && curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin $LINTER_VERSION

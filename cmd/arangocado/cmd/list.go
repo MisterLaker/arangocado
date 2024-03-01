@@ -24,9 +24,9 @@ func runList(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to load config", err)
 	}
 
-	m, err := newMinioClient(config.S3)
+	sr, err := newStorageRegistry(config)
 	if err != nil {
-		log.Fatalln("Unable to create S3 client", err)
+		log.Fatalln("Unable to create storages", err)
 	}
 
 	var backups []Backup
@@ -49,7 +49,10 @@ func runList(c *cobra.Command, args []string) {
 	ctx := context.Background()
 
 	for _, bc := range backups {
-		b := newBackup(bc, config.S3, m)
+		b, err := newBackup(bc, sr)
+		if err != nil {
+			log.Fatalln("Unable to init backup", err)
+		}
 
 		log.Printf("name: %s\n", b.Name)
 
