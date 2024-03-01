@@ -30,10 +30,18 @@ func newStorage(config S3) (storages.Storage, error) {
 		return nil, err
 	}
 
-	return &storages.S3{
+	workers := config.Workers
+
+	if workers == 0 {
+		workers = runtime.NumCPU()
+	}
+
+	storage := &storages.S3{
 		Minio:  m,
 		Bucket: config.Bucket,
-	}, nil
+	}
+
+	return &storages.ChunkStorage{Storage: storage, Workers: workers}, nil
 }
 
 func newStorageRegistry(config *Config) (storages.Registry, error) {
@@ -52,15 +60,14 @@ func newStorageRegistry(config *Config) (storages.Registry, error) {
 }
 
 func newBackup(config Backup, storage storages.Registry) (*backup.Backup, error) {
-	workers := config.Workers
-
-	if workers == 0 {
-		workers = runtime.NumCPU()
+	if len(config.Storages) == 0 {
+		return nil, fmt.Errorf("storages is not defined: %s", config.Name)
 	}
 
-	s, err := storage.Get(config.Storages)
-	if err != nil {
-		return nil, err
+	for _, s := range config.Storages {
+		if _, err := storage.Get(s); err != nil {
+			return nil, fmt.Errorf("backup: %s, %w: %s", config.Name, err, s)
+		}
 	}
 
 	return &backup.Backup{
@@ -72,8 +79,8 @@ func newBackup(config Backup, storage storages.Registry) (*backup.Backup, error)
 		Collections: config.Collections,
 		CacheDir:    config.CacheDir,
 		HistorySize: config.HistorySize,
-		Workers:     workers,
-		Storage:     s,
+		Storages:    config.Storages,
+		Registry:    storage,
 	}, nil
 }
 

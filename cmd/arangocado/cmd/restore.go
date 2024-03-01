@@ -20,6 +20,7 @@ var restoreCfg struct {
 	ConfigFile string
 	Database   string
 	TS         string
+	Storage    string
 }
 
 func init() {
@@ -27,6 +28,7 @@ func init() {
 	CmdRestore.PersistentFlags().StringVar(&restoreCfg.Name, "n", "arangocado", "backup name")
 	CmdRestore.PersistentFlags().StringVar(&restoreCfg.TS, "ts", "", "backup timestamp")
 	CmdRestore.PersistentFlags().StringVar(&restoreCfg.Database, "db", "", "new database to restore backup")
+	CmdRestore.PersistentFlags().StringVar(&restoreCfg.Storage, "storage", "", "backup storage to restore backup")
 }
 
 func runRestore(c *cobra.Command, args []string) {
@@ -55,6 +57,7 @@ func runRestore(c *cobra.Command, args []string) {
 	o := &backup.RestoreOptions{
 		Key:      restoreCfg.TS,
 		Database: restoreCfg.Database,
+		Storage:  restoreCfg.Storage,
 	}
 
 	if err := b.Restore(ctx, o); err != nil {

@@ -3,7 +3,12 @@ package storages
 import (
 	"context"
 	"errors"
+	"log"
+
+	"golang.org/x/sync/errgroup"
 )
+
+var ErrNotFound = errors.New("storage not found")
 
 type Storage interface {
 	Upload(ctx context.Context, backup, db, key, cacheDir string, files []string) error
@@ -12,66 +17,66 @@ type Storage interface {
 	Remove(ctx context.Context, files []string) error
 }
 
-type CombinedStorage struct {
-	Storages []Storage
-}
-
-func (cs *CombinedStorage) Upload(ctx context.Context, backup, db, key, cacheDir string, files []string) error {
-	for _, s := range cs.Storages {
-		if err := s.Upload(ctx, backup, db, key, cacheDir, files); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (cs *CombinedStorage) Download(ctx context.Context, cacheDir string, files []string) error {
-	for _, s := range cs.Storages {
-		if err := s.Download(ctx, cacheDir, files); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (cs *CombinedStorage) GetList(ctx context.Context, prefix string) ([]string, error) {
-	return cs.Storages[0].GetList(ctx, prefix)
-}
-
-func (cs *CombinedStorage) Remove(ctx context.Context, files []string) error {
-	for _, s := range cs.Storages {
-		if err := s.Remove(ctx, files); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 type Registry map[string]Storage
 
-var (
-	ErrNotFound = errors.New("storage not found")
-	ErrNotDefined = errors.New("storages are not defined")
-)
+func (r Registry) Get(key string) (Storage, error) {
+	s, ok := r[key]
+	if !ok {
+		return nil, ErrNotFound
+	}
 
-func (r Registry) Get(keys []string) (Storage, error) {
-	var items []Storage
+	return s, nil
+}
 
-	for _, k := range keys {
-		s, ok := r[k]
-		if !ok {
-			return nil, ErrNotFound
+type ChunkStorage struct {
+	Storage
+	Workers int
+}
+
+func (s *ChunkStorage) Upload(ctx context.Context, backup, db, ts, cacheDir string, files []string) error {
+	ln := len(files)
+	chunkSize := (ln + s.Workers - 1) / s.Workers
+
+	log.Println("upload files ", "files: ", ln, "chunk_size: ", chunkSize)
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	for i := 0; i < ln; i += chunkSize {
+		i := i
+		end := i + chunkSize
+
+		if end > ln {
+			end = ln
 		}
 
-		items = append(items, s)
+		g.Go(func() error {
+			return s.Storage.Upload(ctx, backup, db, ts, cacheDir, files[i:end])
+		})
 	}
 
-	if len(items) == 0 {
-		return nil, ErrNotDefined
+	return g.Wait()
+}
+
+func (s *ChunkStorage) Download(ctx context.Context, cacheDir string, files []string) error {
+	ln := len(files)
+	chunkSize := (ln + s.Workers - 1) / s.Workers
+
+	log.Println("downloading files: ", ln, "chunk_size: ", chunkSize)
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	for i := 0; i < ln; i += chunkSize {
+		i := i
+		end := i + chunkSize
+
+		if end > ln {
+			end = ln
+		}
+
+		g.Go(func() error {
+			return s.Storage.Download(ctx, cacheDir, files[i:end])
+		})
 	}
 
-	return &CombinedStorage{Storages: items}, nil
+	return g.Wait()
 }

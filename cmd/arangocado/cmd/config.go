@@ -17,7 +17,6 @@ type Backup struct {
 	Collections []string
 	HistorySize int
 	CacheDir    string
-	Workers     int
 	Storages    []string
 }
 
@@ -27,6 +26,7 @@ type S3 struct {
 	SecretKey string
 	UseSSL    bool
 	Bucket    string
+	Workers   int
 }
 
 type Scheduler struct {

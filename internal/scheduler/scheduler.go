@@ -41,7 +41,7 @@ func (s *Scheduler) Run(ctx context.Context) {
 		for _, b := range items {
 			log.Println("run backup", b.Name)
 
-			if err := b.Run(ctx); err != nil {
+			if err := b.Dump(ctx); err != nil {
 				log.Println("Unable to run backup", err)
 			}
 

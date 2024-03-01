@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/MisterLaker/arangocado/internal/storages"
 )
 
@@ -25,16 +23,16 @@ type Backup struct {
 	Database    string
 	Collections []string
 	CacheDir    string
-	Workers     int
 	HistorySize int
-	Storage     storages.Storage
+	Storages    []string
+	Registry    storages.Registry
 }
 
-func (b *Backup) Run(ctx context.Context) error {
+func (b *Backup) Dump(ctx context.Context) error {
 	ts := time.Now().Format("20060102T1504")
 	cacheDir := b.GetCacheDir(ts)
 
-	if err := b.Arangodump(ctx, cacheDir); err != nil {
+	if err := b.ArangoDump(ctx, cacheDir); err != nil {
 		return err
 	}
 
@@ -58,16 +56,17 @@ type RestoreOptions struct {
 	Key      string
 	CacheDir string
 	Database string
+	Storage  string
 }
 
 func (b *Backup) Restore(ctx context.Context, options *RestoreOptions) error {
-	if err := b.Download(ctx, options.Key); err != nil {
+	if err := b.Download(ctx, options.Storage, options.Key); err != nil {
 		return err
 	}
 
 	options.CacheDir = filepath.Join(b.CacheDir, getLocalPath(options.Key))
 
-	if err := b.Arangorestore(ctx, options); err != nil {
+	if err := b.ArangoRestore(ctx, options); err != nil {
 		return err
 	}
 
@@ -82,7 +81,7 @@ func (b *Backup) RemoveCache(cacheDir string) error {
 	return os.RemoveAll(cacheDir)
 }
 
-func (b *Backup) Arangodump(ctx context.Context, cacheDir string) error {
+func (b *Backup) ArangoDump(ctx context.Context, cacheDir string) error {
 	args := map[string]any{
 		"server.endpoint":            b.Host,
 		"server.username":            b.User,
@@ -94,7 +93,7 @@ func (b *Backup) Arangodump(ctx context.Context, cacheDir string) error {
 		"include-system-collections": true,
 	}
 
-	cmd := exec.CommandContext(ctx, "arangodump", makeCmdArgs(args)...)
+	cmd := exec.CommandContext(ctx, "arangodump", makeCommandArgs(args)...)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -106,7 +105,7 @@ func (b *Backup) Arangodump(ctx context.Context, cacheDir string) error {
 	return nil
 }
 
-func (b *Backup) Arangorestore(ctx context.Context, options *RestoreOptions) error {
+func (b *Backup) ArangoRestore(ctx context.Context, options *RestoreOptions) error {
 	db := b.Database
 	if options.Database != "" {
 		db = options.Database
@@ -126,7 +125,7 @@ func (b *Backup) Arangorestore(ctx context.Context, options *RestoreOptions) err
 
 	log.Println("arangorestore", "database:", db, "cache dir:", options.CacheDir)
 
-	cmd := exec.CommandContext(ctx, "arangorestore", makeCmdArgs(args)...)
+	cmd := exec.CommandContext(ctx, "arangorestore", makeCommandArgs(args)...)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -138,7 +137,7 @@ func (b *Backup) Arangorestore(ctx context.Context, options *RestoreOptions) err
 	return nil
 }
 
-func makeCmdArgs(args map[string]any) []string {
+func makeCommandArgs(args map[string]any) []string {
 	var items []string
 
 	for k, v := range args {
@@ -176,72 +175,57 @@ func (b *Backup) Upload(ctx context.Context, key, cacheDir string) error {
 		return err
 	}
 
-	ln := len(files)
-	chunkSize := (ln + b.Workers - 1) / b.Workers
+	log.Println("upload files ", key, "files: ", len(files))
 
-	log.Println("upload files ", "files: ", ln, "chunk_size: ", chunkSize)
-
-	g, ctx := errgroup.WithContext(ctx)
-
-	for i := 0; i < ln; i += chunkSize {
-		i := i
-		end := i + chunkSize
-
-		if end > ln {
-			end = ln
+	for _, s := range b.Storages {
+		storage, err := b.Registry.Get(s)
+		if err != nil {
+			return err
 		}
 
-		g.Go(func() error {
-			return b.Storage.Upload(ctx, b.Name, b.Database, key, cacheDir, files[i:end])
-		})
+		if err := storage.Upload(ctx, b.Name, b.Database, key, cacheDir, files); err != nil {
+			return err
+		}
 	}
 
-	return g.Wait()
+	return nil
 }
 
 func getLocalPath(s string) string {
 	return strings.Replace(s, "/", "_", 1)
 }
 
-func (b *Backup) Download(ctx context.Context, key string) error {
-	files, err := b.Storage.GetList(ctx, key)
+func (b *Backup) Download(ctx context.Context, storage, key string) error {
+	s, err := b.Registry.Get(storage)
 	if err != nil {
 		return err
 	}
 
-	ln := len(files)
-	chunkSize := (ln + b.Workers - 1) / b.Workers
-
-	log.Println("downloading: ", key, "files: ", ln, "chunk_size: ", chunkSize)
-
-	g, ctx := errgroup.WithContext(ctx)
-
-	for i := 0; i < ln; i += chunkSize {
-		i := i
-		end := i + chunkSize
-
-		if end > ln {
-			end = ln
-		}
-
-		g.Go(func() error {
-			return b.Storage.Download(ctx, b.CacheDir, files[i:end])
-		})
+	files, err := s.GetList(ctx, key)
+	if err != nil {
+		return err
 	}
 
-	return g.Wait()
+	log.Println("downloading: ", key, "files: ", len(files))
+
+	return s.Download(ctx, b.CacheDir, files)
 }
 
-func (b *Backup) Remove(ctx context.Context, keys []string) error {
+func (b *Backup) Remove(ctx context.Context, storage string, keys []string) error {
+	s, err := b.Registry.Get(storage)
+	if err != nil {
+		return err
+	}
+
 	for _, k := range keys {
-		files, err := b.Storage.GetList(ctx, k)
+		files, err := s.GetList(ctx, k)
 		if err != nil {
 			return err
 		}
 
 		log.Println("removing: ", k, "files: ", len(files))
 
-		if err := b.Storage.Remove(ctx, files); err != nil {
+		if err := s.Remove(ctx, files); err != nil {
 			return err
 		}
 	}
@@ -256,46 +240,68 @@ func pprint(items []string) {
 }
 
 func (b *Backup) CleanUp(ctx context.Context) error {
-	backups, err := b.Storage.GetList(ctx, fmt.Sprintf("%s/%s-", b.Name, b.Database))
-	if err != nil {
-		return err
-	}
+	key := fmt.Sprintf("%s/%s-", b.Name, b.Database)
 
-	// sort by date
-	sort.Sort(sort.Reverse(sort.StringSlice(backups)))
-
-	var removeList []string
-
-	if len(backups) > b.HistorySize {
-		removeList = backups[b.HistorySize:]
-	}
-
-	log.Println("backups:")
-	pprint(backups)
-
-	log.Println("backups to remove: ")
-	pprint(removeList)
-
-	if len(removeList) > 0 {
-		if err := b.Remove(ctx, removeList); err != nil {
+	for _, s := range b.Storages {
+		storage, err := b.Registry.Get(s)
+		if err != nil {
 			return err
+		}
+
+		backups, err := storage.GetList(ctx, key)
+		if err != nil {
+			return err
+		}
+
+		// sort by date
+		sort.Sort(sort.Reverse(sort.StringSlice(backups)))
+
+		var removeList []string
+
+		if len(backups) > b.HistorySize {
+			removeList = backups[b.HistorySize:]
+		}
+
+		log.Println("backups storage: ", s)
+		pprint(backups)
+
+		log.Println("backups to remove: ")
+		pprint(removeList)
+
+		if len(removeList) > 0 {
+			if err := storage.Remove(ctx, removeList); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func (b *Backup) List(ctx context.Context) error {
-	backups, err := b.Storage.GetList(ctx, fmt.Sprintf("%s/%s-", b.Name, b.Database))
-	if err != nil {
-		return err
+func (b *Backup) List(ctx context.Context, storages ...string) error {
+	if len(storages) == 0 {
+		storages = b.Storages
 	}
 
-	// sort by date
-	sort.Sort(sort.Reverse(sort.StringSlice(backups)))
+	key := fmt.Sprintf("%s/%s-", b.Name, b.Database)
 
-	log.Println("backups: ")
-	pprint(backups)
+	for _, s := range storages {
+		storage, err := b.Registry.Get(s)
+		if err != nil {
+			return err
+		}
+
+		backups, err := storage.GetList(ctx, key)
+		if err != nil {
+			return err
+		}
+
+		// sort by date
+		sort.Sort(sort.Reverse(sort.StringSlice(backups)))
+
+		log.Println("backups storage: ", s)
+		pprint(backups)
+	}
 
 	return nil
 }

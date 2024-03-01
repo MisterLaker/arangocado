@@ -41,7 +41,7 @@ func runBackup(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to init backup", err)
 	}
 
-	if err := b.Run(ctx); err != nil {
+	if err := b.Dump(ctx); err != nil {
 		log.Fatalln("Unable to create backup", err)
 	}
 }
