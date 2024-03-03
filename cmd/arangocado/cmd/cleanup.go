@@ -7,15 +7,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var CmdCleaUp = &cobra.Command{
+var CmdCleanUp = &cobra.Command{
 	Use:   "cleanup",
 	Short: "remove old backups",
 	Run:   runCleanUp,
 }
 
 func init() {
-	CmdCleaUp.PersistentFlags().StringVar(&cfg.Name, "n", "arangocado", "backup name")
-	CmdCleaUp.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "config.yaml", "config file")
+	CmdCleanUp.PersistentFlags().StringVar(&cfg.Name, "n", "arangocado", "backup name")
+	CmdCleanUp.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "config.yaml", "config file")
+	CmdCleanUp.PersistentFlags().StringSliceVar(&cfg.Storages, "storage", []string{}, "backup storage to remove backup")
 }
 
 func runCleanUp(c *cobra.Command, args []string) {
@@ -41,7 +42,7 @@ func runCleanUp(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to init backup", err)
 	}
 
-	if err := b.CleanUp(ctx); err != nil {
+	if err := b.CleanUp(ctx, cfg.Storages...); err != nil {
 		log.Fatalln("Unable to remove backups", err)
 	}
 }

@@ -28,7 +28,7 @@ type Backup struct {
 	Registry    storages.Registry
 }
 
-func (b *Backup) Dump(ctx context.Context) error {
+func (b *Backup) Dump(ctx context.Context, storages ...string) error {
 	ts := time.Now().Format("20060102T1504")
 	cacheDir := b.GetCacheDir(ts)
 
@@ -36,7 +36,7 @@ func (b *Backup) Dump(ctx context.Context) error {
 		return err
 	}
 
-	if err := b.Upload(ctx, ts, cacheDir); err != nil {
+	if err := b.Upload(ctx, ts, cacheDir, storages...); err != nil {
 		return err
 	}
 
@@ -169,7 +169,7 @@ func listFiles(root string) ([]string, error) {
 	return files, err
 }
 
-func (b *Backup) Upload(ctx context.Context, key, cacheDir string) error {
+func (b *Backup) Upload(ctx context.Context, key, cacheDir string, storages ...string) error {
 	files, err := listFiles(cacheDir)
 	if err != nil {
 		return err
@@ -177,7 +177,11 @@ func (b *Backup) Upload(ctx context.Context, key, cacheDir string) error {
 
 	log.Println("upload files ", key, "files: ", len(files))
 
-	for _, s := range b.Storages {
+	if len(storages) == 0 {
+		storages = b.Storages
+	}
+
+	for _, s := range storages {
 		storage, err := b.Registry.Get(s)
 		if err != nil {
 			return err
@@ -239,10 +243,14 @@ func pprint(items []string) {
 	}
 }
 
-func (b *Backup) CleanUp(ctx context.Context) error {
+func (b *Backup) CleanUp(ctx context.Context, storages ...string) error {
 	key := fmt.Sprintf("%s/%s-", b.Name, b.Database)
 
-	for _, s := range b.Storages {
+	if len(storages) == 0 {
+		storages = b.Storages
+	}
+
+	for _, s := range storages {
 		storage, err := b.Registry.Get(s)
 		if err != nil {
 			return err

@@ -16,6 +16,7 @@ var CmdBackup = &cobra.Command{
 func init() {
 	CmdBackup.PersistentFlags().StringVar(&cfg.Name, "n", "arangocado", "backup name")
 	CmdBackup.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "config.yaml", "config file")
+	CmdBackup.PersistentFlags().StringSliceVar(&cfg.Storages, "storage", []string{}, "backup storage to remove backup")
 }
 
 func runBackup(c *cobra.Command, args []string) {
@@ -41,7 +42,7 @@ func runBackup(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to init backup", err)
 	}
 
-	if err := b.Dump(ctx); err != nil {
+	if err := b.Dump(ctx, cfg.Storages...); err != nil {
 		log.Fatalln("Unable to create backup", err)
 	}
 }

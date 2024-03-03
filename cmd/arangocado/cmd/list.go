@@ -16,6 +16,7 @@ var CmdList = &cobra.Command{
 func init() {
 	CmdList.PersistentFlags().StringVar(&cfg.Name, "n", "", "backup name")
 	CmdList.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "config.yaml", "config file")
+	CmdList.PersistentFlags().StringSliceVar(&cfg.Storages, "storage", []string{}, "backup storage to remove backup")
 }
 
 func runList(c *cobra.Command, args []string) {
@@ -56,7 +57,7 @@ func runList(c *cobra.Command, args []string) {
 
 		log.Printf("name: %s\n", b.Name)
 
-		if err := b.List(ctx); err != nil {
+		if err := b.List(ctx, cfg.Storages...); err != nil {
 			log.Fatalln("Unable to get list if backups", err)
 		}
 	}

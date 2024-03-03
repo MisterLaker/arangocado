@@ -16,6 +16,7 @@ var CmdAuto = &cobra.Command{
 var cfg struct {
 	Name       string
 	ConfigFile string
+	Storages   []string
 }
 
 func init() {
