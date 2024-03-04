@@ -5,6 +5,8 @@ import (
 	"log"
 
 	"github.com/spf13/cobra"
+
+	"github.com/MisterLaker/arangocado/internal/backups"
 )
 
 var CmdBackup = &cobra.Command{
@@ -14,7 +16,7 @@ var CmdBackup = &cobra.Command{
 }
 
 func init() {
-	CmdBackup.PersistentFlags().StringVar(&cfg.Name, "n", "arangocado", "backup name")
+	CmdBackup.PersistentFlags().StringVar(&cfg.Name, "name", "arangocado", "backup name")
 	CmdBackup.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "config.yaml", "config file")
 	CmdBackup.PersistentFlags().StringSliceVar(&cfg.Storages, "storage", []string{}, "backup storage to remove backup")
 }
@@ -30,19 +32,24 @@ func runBackup(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to create storages", err)
 	}
 
-	backup := config.GetBackup(cfg.Name)
-	if backup == nil {
+	backupConfig := config.GetBackup(cfg.Name)
+	if backupConfig == nil {
 		log.Fatalln("Unable to find backup: ", cfg.Name)
 	}
 
 	ctx := context.Background()
 
-	b, err := newBackup(*backup, sr)
+	backup, err := newBackup(*backupConfig, sr)
 	if err != nil {
 		log.Fatalln("Unable to init backup", err)
 	}
 
-	if err := b.Dump(ctx, cfg.Storages...); err != nil {
+	options := &backups.DumpOptions{
+		SkipSchedule: true,
+		Storages:     cfg.Storages,
+	}
+
+	if err := backup.Dump(ctx, options); err != nil {
 		log.Fatalln("Unable to create backup", err)
 	}
 }

@@ -20,13 +20,14 @@ type Backup struct {
 	Storages    []string
 }
 
-type S3 struct {
+type Storage struct {
 	Endpoint  string
 	AccessKey string
 	SecretKey string
 	UseSSL    bool
 	Bucket    string
 	Workers   int
+	Schedule  string
 }
 
 type Scheduler struct {
@@ -36,7 +37,7 @@ type Scheduler struct {
 }
 
 type Config struct {
-	Storages      map[string]S3
+	Storages      map[string]Storage
 	Backups       []Scheduler
 	CheckInterval time.Duration `default:"10s"`
 	CacheDir      string        `default:"/tmp"`

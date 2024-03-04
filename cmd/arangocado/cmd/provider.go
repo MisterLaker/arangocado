@@ -12,19 +12,19 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/robfig/cron/v3"
 
-	"github.com/MisterLaker/arangocado/internal/backup"
+	"github.com/MisterLaker/arangocado/internal/backups"
 	"github.com/MisterLaker/arangocado/internal/scheduler"
 	"github.com/MisterLaker/arangocado/internal/storages"
 )
 
-func newMinioClient(config S3) (*minio.Client, error) {
+func newMinioClient(config Storage) (*minio.Client, error) {
 	return minio.New(config.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(config.AccessKey, config.SecretKey, ""),
 		Secure: config.UseSSL,
 	})
 }
 
-func newStorage(config S3) (storages.Storage, error) {
+func newStorage(config Storage) (storages.Storage, error) {
 	m, err := newMinioClient(config)
 	if err != nil {
 		return nil, err
@@ -36,12 +36,26 @@ func newStorage(config S3) (storages.Storage, error) {
 		workers = runtime.NumCPU()
 	}
 
-	storage := &storages.S3{
+	s3 := &storages.S3{
 		Minio:  m,
 		Bucket: config.Bucket,
 	}
 
-	return &storages.ChunkStorage{Storage: storage, Workers: workers}, nil
+	storage := &storages.ChunkStorage{
+		Storage: s3,
+		Workers: workers,
+	}
+
+	if config.Schedule == "" {
+		return storage, nil
+	}
+
+	schedule, err := cron.ParseStandard(config.Schedule)
+	if err != nil {
+		return nil, fmt.Errorf("schedule: %s - %w", config.Schedule, err)
+	}
+
+	return storages.NewScheduleStorage(storage, schedule, time.Now()), nil
 }
 
 func newStorageRegistry(config *Config) (storages.Registry, error) {
@@ -59,7 +73,7 @@ func newStorageRegistry(config *Config) (storages.Registry, error) {
 	return registry, nil
 }
 
-func newBackup(config Backup, storage storages.Registry) (*backup.Backup, error) {
+func newBackup(config Backup, storage storages.Registry) (*backups.Backup, error) {
 	if len(config.Storages) == 0 {
 		return nil, fmt.Errorf("storages is not defined: %s", config.Name)
 	}
@@ -70,7 +84,7 @@ func newBackup(config Backup, storage storages.Registry) (*backup.Backup, error)
 		}
 	}
 
-	return &backup.Backup{
+	return &backups.Backup{
 		Name:        config.Name,
 		Host:        config.Host,
 		User:        config.User,

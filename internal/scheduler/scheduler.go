@@ -7,7 +7,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/MisterLaker/arangocado/internal/backup"
+	"github.com/MisterLaker/arangocado/internal/backups"
 )
 
 type Scheduler struct {
@@ -47,7 +47,7 @@ func (s *Scheduler) runBackups(ctx context.Context, t time.Time) {
 	for _, b := range items {
 		log.Println("run backup", b.Name, "time: ", t)
 
-		if err := b.Dump(ctx); err != nil {
+		if err := b.Dump(ctx, &backups.DumpOptions{}); err != nil {
 			log.Println("Unable to run backup", err)
 		}
 
@@ -62,7 +62,7 @@ func (s *Scheduler) runBackups(ctx context.Context, t time.Time) {
 }
 
 type BackupSchedule struct {
-	*backup.Backup
+	*backups.Backup
 	Schedule     cron.Schedule
 	NextUpdateAt time.Time
 }

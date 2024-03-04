@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/MisterLaker/arangocado/internal/backup"
+	"github.com/MisterLaker/arangocado/internal/backups"
 )
 
 var CmdRestore = &cobra.Command{
@@ -42,25 +42,25 @@ func runRestore(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to create storages", err)
 	}
 
-	bc := config.GetBackup(restoreCfg.Name)
-	if bc == nil {
+	backupConfig := config.GetBackup(restoreCfg.Name)
+	if backupConfig == nil {
 		log.Fatalln("Unable to find backup", restoreCfg.Name)
 	}
 
 	ctx := context.Background()
 
-	b, err := newBackup(*bc, sr)
+	backup, err := newBackup(*backupConfig, sr)
 	if err != nil {
 		log.Fatalln("Unable to init backup", err)
 	}
 
-	o := &backup.RestoreOptions{
+	options := &backups.RestoreOptions{
 		Key:      restoreCfg.TS,
 		Database: restoreCfg.Database,
 		Storage:  restoreCfg.Storage,
 	}
 
-	if err := b.Restore(ctx, o); err != nil {
+	if err := backup.Restore(ctx, options); err != nil {
 		log.Fatalln("Unable to restore backup", err)
 	}
 }

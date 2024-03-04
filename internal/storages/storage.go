@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"log"
+	"time"
 
+	"github.com/robfig/cron/v3"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -15,6 +17,7 @@ type Storage interface {
 	Download(ctx context.Context, cacheDir string, files []string) error
 	GetList(ctx context.Context, prefix string) ([]string, error)
 	Remove(ctx context.Context, files []string) error
+	CanUpload(t time.Time) bool
 }
 
 type Registry map[string]Storage
@@ -79,4 +82,41 @@ func (s *ChunkStorage) Download(ctx context.Context, cacheDir string, files []st
 	}
 
 	return g.Wait()
+}
+
+type ScheduleStorage struct {
+	Storage
+	Schedule     cron.Schedule
+	nextUpdateAt time.Time
+}
+
+func NewScheduleStorage(storage Storage, schedule cron.Schedule, t time.Time) *ScheduleStorage {
+	s := &ScheduleStorage{
+		Storage:  storage,
+		Schedule: schedule,
+	}
+
+	s.setNextUpdateAt(t)
+
+	return s
+}
+
+func (s *ScheduleStorage) setNextUpdateAt(t time.Time) {
+	s.nextUpdateAt = s.Schedule.Next(t)
+}
+
+func (s *ScheduleStorage) CanUpload(t time.Time) bool {
+	return s.nextUpdateAt.Before(t)
+}
+
+func (s *ScheduleStorage) Upload(ctx context.Context, backup, db, ts, cacheDir string, files []string) error {
+	t := time.Now()
+
+	if err := s.Storage.Upload(ctx, backup, db, ts, cacheDir, files); err != nil {
+		return err
+	}
+
+	s.setNextUpdateAt(t)
+
+	return nil
 }

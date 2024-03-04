@@ -6,6 +6,7 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 )
@@ -85,4 +86,8 @@ func (s *S3) Remove(ctx context.Context, files []string) error {
 	}
 
 	return nil
+}
+
+func (s *S3) CanUpload(t time.Time) bool {
+	return true
 }

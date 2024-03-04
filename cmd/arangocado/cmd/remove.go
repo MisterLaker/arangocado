@@ -21,9 +21,9 @@ var removeCfg struct {
 }
 
 func init() {
-	CmdRemove.PersistentFlags().StringVar(&removeCfg.ConfigFile, "config", "config.yaml", "config file")
-	CmdRemove.PersistentFlags().StringVar(&removeCfg.Name, "n", "arangocado", "backup name")
+	CmdRemove.PersistentFlags().StringVar(&removeCfg.Name, "name", "arangocado", "backup name")
 	CmdRemove.PersistentFlags().StringVar(&removeCfg.TS, "ts", "", "backup timestamp")
+	CmdRemove.PersistentFlags().StringVar(&removeCfg.ConfigFile, "config", "config.yaml", "config file")
 	CmdRemove.PersistentFlags().StringVar(&removeCfg.Storage, "storage", "", "backup storage to remove backup")
 }
 

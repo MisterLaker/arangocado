@@ -1,4 +1,4 @@
-package backup
+package backups
 
 import (
 	"context"
@@ -28,15 +28,22 @@ type Backup struct {
 	Registry    storages.Registry
 }
 
-func (b *Backup) Dump(ctx context.Context, storages ...string) error {
-	ts := time.Now().Format("20060102T1504")
+type DumpOptions struct {
+	Storages     []string
+	SkipSchedule bool
+}
+
+func (b *Backup) Dump(ctx context.Context, options *DumpOptions) error {
+	t := time.Now()
+	ts := t.Format("20060102T1504")
+
 	cacheDir := b.GetCacheDir(ts)
 
 	if err := b.ArangoDump(ctx, cacheDir); err != nil {
 		return err
 	}
 
-	if err := b.Upload(ctx, ts, cacheDir, storages...); err != nil {
+	if err := b.Upload(ctx, t, ts, cacheDir, options); err != nil {
 		return err
 	}
 
@@ -169,13 +176,15 @@ func listFiles(root string) ([]string, error) {
 	return files, err
 }
 
-func (b *Backup) Upload(ctx context.Context, key, cacheDir string, storages ...string) error {
+func (b *Backup) Upload(ctx context.Context, t time.Time, key, cacheDir string, options *DumpOptions) error {
 	files, err := listFiles(cacheDir)
 	if err != nil {
 		return err
 	}
 
 	log.Println("upload files ", key, "files: ", len(files))
+
+	storages := options.Storages
 
 	if len(storages) == 0 {
 		storages = b.Storages
@@ -185,6 +194,12 @@ func (b *Backup) Upload(ctx context.Context, key, cacheDir string, storages ...s
 		storage, err := b.Registry.Get(s)
 		if err != nil {
 			return err
+		}
+
+		if !options.SkipSchedule && !storage.CanUpload(t) {
+			log.Println("skip backup upload: ", b.Name, " storage: ", s)
+
+			continue
 		}
 
 		if err := storage.Upload(ctx, b.Name, b.Database, key, cacheDir, files); err != nil {
@@ -273,10 +288,10 @@ func (b *Backup) CleanUp(ctx context.Context, storages ...string) error {
 		log.Println("backups storage: ", s)
 		pprint(backups)
 
-		log.Println("backups to remove: ")
-		pprint(removeList)
-
 		if len(removeList) > 0 {
+			log.Println("backups to remove: ")
+			pprint(removeList)
+
 			if err := b.Remove(ctx, s, removeList); err != nil {
 				return err
 			}

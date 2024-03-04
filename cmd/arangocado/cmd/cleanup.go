@@ -14,7 +14,7 @@ var CmdCleanUp = &cobra.Command{
 }
 
 func init() {
-	CmdCleanUp.PersistentFlags().StringVar(&cfg.Name, "n", "arangocado", "backup name")
+	CmdCleanUp.PersistentFlags().StringVar(&cfg.Name, "name", "arangocado", "backup name")
 	CmdCleanUp.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "config.yaml", "config file")
 	CmdCleanUp.PersistentFlags().StringSliceVar(&cfg.Storages, "storage", []string{}, "backup storage to remove backup")
 }
