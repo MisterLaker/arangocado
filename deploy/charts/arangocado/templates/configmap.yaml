@@ -9,8 +9,8 @@ data:
     checkInterval: "{{ .Values.checkInterval }}"
     cacheDir:  "{{ .Values.cacheDir }}"
 
-    s3:
-      {{- toYaml .Values.s3 | nindent 6 }}
+    storages:
+      {{- toYaml .Values.storages | nindent 6 }}
 
     backups:
       {{- toYaml .Values.backups | nindent 6 }}

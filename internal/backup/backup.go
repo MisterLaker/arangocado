@@ -277,7 +277,7 @@ func (b *Backup) CleanUp(ctx context.Context, storages ...string) error {
 		pprint(removeList)
 
 		if len(removeList) > 0 {
-			if err := storage.Remove(ctx, removeList); err != nil {
+			if err := b.Remove(ctx, s, removeList); err != nil {
 				return err
 			}
 		}
