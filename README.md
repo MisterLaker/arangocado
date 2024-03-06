@@ -1,8 +1,8 @@
 <h1 align="center">
- <b>arangocado: a backup tool for ArangoDB non-enterprise users</b>
+ <b>arangocado</b>
 </h1>
 
-A backups tool for [ArangoDB](https://arangodb.com/). Manage your backups in a centralized way.
+Backup tool for [ArangoDB](https://arangodb.com/) non-enterprise users. Manage your backups in a centralized way.
 
 ---
 
