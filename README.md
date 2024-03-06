@@ -8,7 +8,7 @@ Backup tool for [ArangoDB](https://arangodb.com/) non-enterprise users. Manage y
 
 ## Features
 
-- Dump / restore your database backups with support of remote S3 storage. Using [arangodump and arangorestore.](https://docs.arangodb.com/3.11/operations/backup-and-restore/#logical-backups)
+- Dump / restore your ArangoDB database with support of remote S3 storage. Using [arangodump and arangorestore.](https://docs.arangodb.com/3.11/operations/backup-and-restore/#logical-backups)
 - Automated creation of backups with cron like schedule
 - Support of multiple storages per backup
 - Support of storage schedule to use different approaches for uploading backups
