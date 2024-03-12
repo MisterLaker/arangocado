@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/MisterLaker/arangocado/internal/storages"
 )
 
@@ -308,23 +310,30 @@ func (b *Backup) List(ctx context.Context, storages ...string) error {
 
 	key := fmt.Sprintf("%s/%s-", b.Name, b.Database)
 
-	for _, s := range storages {
-		storage, err := b.Registry.Get(s)
+	g, ctx := errgroup.WithContext(ctx)
+
+	for _, storageName := range storages {
+		storageName := storageName
+		storage, err := b.Registry.Get(storageName)
 		if err != nil {
 			return err
 		}
 
-		backups, err := storage.GetList(ctx, key)
-		if err != nil {
-			return err
-		}
+		g.Go(func() error {
+			backups, err := storage.GetList(ctx, key)
+			if err != nil {
+				return err
+			}
 
-		// sort by date
-		sort.Sort(sort.Reverse(sort.StringSlice(backups)))
+			// sort by date
+			sort.Sort(sort.Reverse(sort.StringSlice(backups)))
 
-		log.Println("backups storage: ", s)
-		pprint(backups)
+			log.Println("storage: ", storageName)
+			pprint(backups)
+
+			return nil
+		})
 	}
 
-	return nil
+	return g.Wait()
 }

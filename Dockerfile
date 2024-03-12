@@ -1,6 +1,6 @@
 FROM arangodb/arangodb:3.11.8 AS arango
 
-FROM golang:1.21.7-bookworm AS devel
+FROM golang:1.22.1-bookworm AS devel
 
 COPY --from=arango /usr/bin/arangodump /usr/bin
 COPY --from=arango /usr/bin/arangorestore /usr/bin
