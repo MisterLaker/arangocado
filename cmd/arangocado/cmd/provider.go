@@ -86,15 +86,17 @@ func newBackup(config Backup, storage storages.Registry) (*backups.Backup, error
 
 	return &backups.Backup{
 		Name:        config.Name,
-		Host:        config.Host,
-		User:        config.User,
-		Password:    config.Password,
-		Database:    config.Database,
-		Collections: config.Collections,
 		CacheDir:    config.CacheDir,
 		HistorySize: config.HistorySize,
 		Storages:    config.Storages,
 		Registry:    storage,
+		Database: &backups.ArangoDB{
+			Host:        config.Host,
+			User:        config.User,
+			Password:    config.Password,
+			Database:    config.Database,
+			Collections: config.Collections,
+		},
 	}, nil
 }
 

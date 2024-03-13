@@ -35,13 +35,13 @@ func (s *S3) Upload(ctx context.Context, backup, db, key, cacheDir string, files
 	return nil
 }
 
-func getLocalPath(p string) string {
+func GetLocalPath(p string) string {
 	return strings.Replace(p, "/", "_", 1)
 }
 
 func (s *S3) Download(ctx context.Context, cacheDir string, files []string) error {
 	for _, name := range files {
-		localPath := getLocalPath(name)
+		localPath := GetLocalPath(name)
 
 		path := fmt.Sprintf("%s/%s", cacheDir, localPath)
 

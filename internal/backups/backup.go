@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -18,15 +16,10 @@ import (
 
 type Backup struct {
 	Name        string
-	Host        string
-	Port        string
-	User        string
-	Password    string
-	Database    string
-	Collections []string
 	CacheDir    string
 	HistorySize int
 	Storages    []string
+	Database    Database
 	Registry    storages.Registry
 }
 
@@ -41,7 +34,7 @@ func (b *Backup) Dump(ctx context.Context, options *DumpOptions) error {
 
 	cacheDir := b.GetCacheDir(ts)
 
-	if err := b.ArangoDump(ctx, cacheDir); err != nil {
+	if err := b.Database.Dump(ctx, cacheDir); err != nil {
 		return err
 	}
 
@@ -58,7 +51,7 @@ func (b *Backup) Dump(ctx context.Context, options *DumpOptions) error {
 
 func (b *Backup) GetCacheDir(key string) string {
 	// /tmp/<name>_<db>-<key>
-	return fmt.Sprintf("%s/%s_%s-%s", b.CacheDir, b.Name, b.Database, key)
+	return fmt.Sprintf("%s/%s_%s-%s", b.CacheDir, b.Name, b.Database.GetName(), key)
 }
 
 type RestoreOptions struct {
@@ -73,9 +66,9 @@ func (b *Backup) Restore(ctx context.Context, options *RestoreOptions) error {
 		return err
 	}
 
-	options.CacheDir = filepath.Join(b.CacheDir, getLocalPath(options.Key))
+	options.CacheDir = filepath.Join(b.CacheDir, storages.GetLocalPath(options.Key))
 
-	if err := b.ArangoRestore(ctx, options); err != nil {
+	if err := b.Database.Restore(ctx, options); err != nil {
 		return err
 	}
 
@@ -88,81 +81,6 @@ func (b *Backup) Restore(ctx context.Context, options *RestoreOptions) error {
 
 func (b *Backup) RemoveCache(cacheDir string) error {
 	return os.RemoveAll(cacheDir)
-}
-
-func (b *Backup) ArangoDump(ctx context.Context, cacheDir string) error {
-	args := map[string]any{
-		"server.endpoint":            b.Host,
-		"server.username":            b.User,
-		"server.password":            b.Password,
-		"server.database":            b.Database,
-		"collection":                 b.Collections,
-		"output-directory":           cacheDir,
-		"overwrite":                  true,
-		"include-system-collections": true,
-	}
-
-	cmd := exec.CommandContext(ctx, "arangodump", makeCommandArgs(args)...)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (b *Backup) ArangoRestore(ctx context.Context, options *RestoreOptions) error {
-	db := b.Database
-	if options.Database != "" {
-		db = options.Database
-	}
-
-	args := map[string]any{
-		"server.endpoint":            b.Host,
-		"server.username":            b.User,
-		"server.password":            b.Password,
-		"server.database":            db,
-		"collection":                 b.Collections,
-		"input-directory":            options.CacheDir,
-		"create-database":            true,
-		"overwrite":                  true,
-		"include-system-collections": true,
-	}
-
-	log.Println("arangorestore", "database:", db, "cache dir:", options.CacheDir)
-
-	cmd := exec.CommandContext(ctx, "arangorestore", makeCommandArgs(args)...)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func makeCommandArgs(args map[string]any) []string {
-	var items []string
-
-	for k, v := range args {
-		switch t := v.(type) {
-		case bool:
-			items = append(items, fmt.Sprintf("--%s", k))
-		case []string:
-			for _, kv := range t {
-				items = append(items, fmt.Sprintf("--%s=%s", k, kv))
-			}
-		default:
-			items = append(items, fmt.Sprintf("--%s=%v", k, v))
-		}
-	}
-
-	return items
 }
 
 func listFiles(root string) ([]string, error) {
@@ -204,16 +122,12 @@ func (b *Backup) Upload(ctx context.Context, t time.Time, key, cacheDir string, 
 			continue
 		}
 
-		if err := storage.Upload(ctx, b.Name, b.Database, key, cacheDir, files); err != nil {
+		if err := storage.Upload(ctx, b.Name, b.Database.GetName(), key, cacheDir, files); err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func getLocalPath(s string) string {
-	return strings.Replace(s, "/", "_", 1)
 }
 
 func (b *Backup) Download(ctx context.Context, storage, key string) error {
@@ -232,21 +146,21 @@ func (b *Backup) Download(ctx context.Context, storage, key string) error {
 	return s.Download(ctx, b.CacheDir, files)
 }
 
-func (b *Backup) Remove(ctx context.Context, storage string, keys []string) error {
-	s, err := b.Registry.Get(storage)
+func (b *Backup) Remove(ctx context.Context, storageName string, keys []string) error {
+	storage, err := b.Registry.Get(storageName)
 	if err != nil {
 		return err
 	}
 
 	for _, k := range keys {
-		files, err := s.GetList(ctx, k)
+		files, err := storage.GetList(ctx, k)
 		if err != nil {
 			return err
 		}
 
 		log.Println("removing: ", k, "files: ", len(files))
 
-		if err := s.Remove(ctx, files); err != nil {
+		if err := storage.Remove(ctx, files); err != nil {
 			return err
 		}
 	}
@@ -260,8 +174,12 @@ func pprint(items []string) {
 	}
 }
 
+func (b *Backup) getStorageDirPrefix() string {
+	return fmt.Sprintf("%s/%s-", b.Name, b.Database.GetName())
+}
+
 func (b *Backup) CleanUp(ctx context.Context, storages ...string) error {
-	key := fmt.Sprintf("%s/%s-", b.Name, b.Database)
+	key := b.getStorageDirPrefix()
 
 	if len(storages) == 0 {
 		storages = b.Storages
@@ -308,7 +226,7 @@ func (b *Backup) List(ctx context.Context, storages ...string) error {
 		storages = b.Storages
 	}
 
-	key := fmt.Sprintf("%s/%s-", b.Name, b.Database)
+	key := b.getStorageDirPrefix()
 
 	g, ctx := errgroup.WithContext(ctx)
 
