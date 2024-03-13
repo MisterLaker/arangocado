@@ -12,51 +12,112 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/robfig/cron/v3"
 
-	"github.com/MisterLaker/arangocado/internal/backup"
+	"github.com/MisterLaker/arangocado/internal/backups"
 	"github.com/MisterLaker/arangocado/internal/scheduler"
+	"github.com/MisterLaker/arangocado/internal/storages"
 )
 
-func newMinioClient(config S3) (*minio.Client, error) {
+func newMinioClient(config Storage) (*minio.Client, error) {
 	return minio.New(config.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(config.AccessKey, config.SecretKey, ""),
 		Secure: config.UseSSL,
 	})
 }
 
-func newBackup(config Backup, s3 S3, m *minio.Client) *backup.Backup {
-	workers := runtime.NumCPU()
-	if s3.Workers > 0 {
-		workers = s3.Workers
+func newStorage(config Storage) (storages.Storage, error) {
+	m, err := newMinioClient(config)
+	if err != nil {
+		return nil, err
 	}
 
-	return &backup.Backup{
-		Name:        config.Name,
-		Host:        config.Host,
-		User:        config.User,
-		Password:    config.Password,
-		Database:    config.Database,
-		Collections: config.Collections,
-		CacheDir:    config.CacheDir,
-		HistorySize: config.HistorySize,
-		Workers:     workers,
-		Bucket:      s3.Bucket,
-		Minio:       m,
-	}
-}
+	workers := config.Workers
 
-func newBackupSchedule(config Scheduler, s3 S3, m *minio.Client) (*scheduler.BackupSchedule, error) {
+	if workers == 0 {
+		workers = runtime.NumCPU()
+	}
+
+	s3 := &storages.S3{
+		Minio:  m,
+		Bucket: config.Bucket,
+	}
+
+	storage := &storages.ChunkStorage{
+		Storage: s3,
+		Workers: workers,
+	}
+
+	if config.Schedule == "" {
+		return storage, nil
+	}
+
 	schedule, err := cron.ParseStandard(config.Schedule)
 	if err != nil {
 		return nil, fmt.Errorf("schedule: %s - %w", config.Schedule, err)
 	}
 
-	return &scheduler.BackupSchedule{
-		Schedule: schedule,
-		Backup:   newBackup(config.Backup, s3, m),
+	return storages.NewScheduleStorage(storage, schedule, time.Now()), nil
+}
+
+func newStorageRegistry(config *Config) (storages.Registry, error) {
+	registry := make(storages.Registry)
+
+	for key, cfg := range config.Storages {
+		s, err := newStorage(cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		registry[key] = s
+	}
+
+	return registry, nil
+}
+
+func newBackup(config Backup, storage storages.Registry) (*backups.Backup, error) {
+	if len(config.Storages) == 0 {
+		return nil, fmt.Errorf("storages is not defined: %s", config.Name)
+	}
+
+	for _, s := range config.Storages {
+		if _, err := storage.Get(s); err != nil {
+			return nil, fmt.Errorf("backup: %s, %w: %s", config.Name, err, s)
+		}
+	}
+
+	return &backups.Backup{
+		Name:        config.Name,
+		CacheDir:    config.CacheDir,
+		HistorySize: config.HistorySize,
+		Storages:    config.Storages,
+		Registry:    storage,
+		Database: &backups.ArangoDB{
+			Host:        config.Host,
+			User:        config.User,
+			Password:    config.Password,
+			Database:    config.Database,
+			Collections: config.Collections,
+		},
 	}, nil
 }
 
-func newScheduler(config *Config, m *minio.Client) (*scheduler.Scheduler, error) {
+func newBackupSchedule(config Scheduler, storage storages.Registry) (*scheduler.BackupSchedule, error) {
+	schedule, err := cron.ParseStandard(config.Schedule)
+	if err != nil {
+		return nil, fmt.Errorf("schedule: %s - %w", config.Schedule, err)
+	}
+
+	backup, err := newBackup(config.Backup, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	return &scheduler.BackupSchedule{
+		Schedule: schedule,
+		Backup:   backup,
+	}, nil
+}
+
+func newScheduler(config *Config, storage storages.Registry) (*scheduler.Scheduler, error) {
 	var backups []*scheduler.BackupSchedule
 
 	t := time.Now()
@@ -66,7 +127,7 @@ func newScheduler(config *Config, m *minio.Client) (*scheduler.Scheduler, error)
 			continue
 		}
 
-		b, err := newBackupSchedule(bs, config.S3, m)
+		b, err := newBackupSchedule(bs, storage)
 		if err != nil {
 			return nil, err
 		}

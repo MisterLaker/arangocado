@@ -55,12 +55,6 @@ affinity: {}
 checkInterval: "10s"
 cacheDir: "/tmp"
 
-s3:
-  endpoint:
-  accessKey:
-  secretKey:
-  bucket:
-
 backups:
   - name:
     schedule: "30 * * * *"
@@ -69,3 +63,14 @@ backups:
     user:
     password:
     historySize: 5
+    storages:
+      - local
+
+storages:
+  local:
+    endpoint: ""
+    accessKey: ""
+    secretKey: ""
+    bucket: ""
+    useSSL: true
+    schedule: "0 */4 * * *"

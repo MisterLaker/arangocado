@@ -14,8 +14,9 @@ var CmdList = &cobra.Command{
 }
 
 func init() {
-	CmdList.PersistentFlags().StringVar(&cfg.Name, "n", "", "backup name")
+	CmdList.PersistentFlags().StringVar(&cfg.Name, "name", "", "backup name")
 	CmdList.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "config.yaml", "config file")
+	CmdList.PersistentFlags().StringSliceVar(&cfg.Storages, "storage", []string{}, "backup storage to remove backup")
 }
 
 func runList(c *cobra.Command, args []string) {
@@ -24,9 +25,9 @@ func runList(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to load config", err)
 	}
 
-	m, err := newMinioClient(config.S3)
+	sr, err := newStorageRegistry(config)
 	if err != nil {
-		log.Fatalln("Unable to create S3 client", err)
+		log.Fatalln("Unable to create storages", err)
 	}
 
 	var backups []Backup
@@ -49,11 +50,14 @@ func runList(c *cobra.Command, args []string) {
 	ctx := context.Background()
 
 	for _, bc := range backups {
-		b := newBackup(bc, config.S3, m)
+		b, err := newBackup(bc, sr)
+		if err != nil {
+			log.Fatalln("Unable to init backup", err)
+		}
 
 		log.Printf("name: %s\n", b.Name)
 
-		if err := b.List(ctx); err != nil {
+		if err := b.List(ctx, cfg.Storages...); err != nil {
 			log.Fatalln("Unable to get list if backups", err)
 		}
 	}

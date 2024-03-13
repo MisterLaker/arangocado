@@ -16,7 +16,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(cmd.CmdAuto)
 	rootCmd.AddCommand(cmd.CmdBackup)
-	rootCmd.AddCommand(cmd.CmdCleaUp)
+	rootCmd.AddCommand(cmd.CmdCleanUp)
 	rootCmd.AddCommand(cmd.CmdList)
 	rootCmd.AddCommand(cmd.CmdRemove)
 	rootCmd.AddCommand(cmd.CmdRestore)

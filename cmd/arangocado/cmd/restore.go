@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/MisterLaker/arangocado/internal/backup"
+	"github.com/MisterLaker/arangocado/internal/backups"
 )
 
 var CmdRestore = &cobra.Command{
@@ -20,6 +20,7 @@ var restoreCfg struct {
 	ConfigFile string
 	Database   string
 	TS         string
+	Storage    string
 }
 
 func init() {
@@ -27,6 +28,7 @@ func init() {
 	CmdRestore.PersistentFlags().StringVar(&restoreCfg.Name, "n", "arangocado", "backup name")
 	CmdRestore.PersistentFlags().StringVar(&restoreCfg.TS, "ts", "", "backup timestamp")
 	CmdRestore.PersistentFlags().StringVar(&restoreCfg.Database, "db", "", "new database to restore backup")
+	CmdRestore.PersistentFlags().StringVar(&restoreCfg.Storage, "storage", "", "backup storage to restore backup")
 }
 
 func runRestore(c *cobra.Command, args []string) {
@@ -35,26 +37,30 @@ func runRestore(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to load config", err)
 	}
 
-	m, err := newMinioClient(config.S3)
+	sr, err := newStorageRegistry(config)
 	if err != nil {
-		log.Fatalln("Unable to create S3 client", err)
+		log.Fatalln("Unable to create storages", err)
 	}
 
-	bc := config.GetBackup(restoreCfg.Name)
-	if bc == nil {
+	backupConfig := config.GetBackup(restoreCfg.Name)
+	if backupConfig == nil {
 		log.Fatalln("Unable to find backup", restoreCfg.Name)
 	}
 
 	ctx := context.Background()
 
-	b := newBackup(*bc, config.S3, m)
-
-	o := &backup.RestoreOptions{
-		Key:      restoreCfg.TS,
-		Database: restoreCfg.Database,
+	backup, err := newBackup(*backupConfig, sr)
+	if err != nil {
+		log.Fatalln("Unable to init backup", err)
 	}
 
-	if err := b.Restore(ctx, o); err != nil {
+	options := &backups.RestoreOptions{
+		Key:      restoreCfg.TS,
+		Database: restoreCfg.Database,
+		Storage:  restoreCfg.Storage,
+	}
+
+	if err := backup.Restore(ctx, options); err != nil {
 		log.Fatalln("Unable to restore backup", err)
 	}
 }

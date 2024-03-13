@@ -17,25 +17,27 @@ type Backup struct {
 	Collections []string
 	HistorySize int
 	CacheDir    string
+	Storages    []string
 }
 
-type S3 struct {
+type Storage struct {
 	Endpoint  string
 	AccessKey string
 	SecretKey string
 	UseSSL    bool
 	Bucket    string
 	Workers   int
+	Schedule  string
 }
 
 type Scheduler struct {
-	Backup             `mapstructure:",squash"	`
+	Backup             `mapstructure:",squash"`
 	Schedule           string
 	TriggerImmediately bool
 }
 
 type Config struct {
-	S3            S3
+	Storages      map[string]Storage
 	Backups       []Scheduler
 	CheckInterval time.Duration `default:"10s"`
 	CacheDir      string        `default:"/tmp"`

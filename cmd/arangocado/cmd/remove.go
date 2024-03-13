@@ -17,12 +17,14 @@ var removeCfg struct {
 	Name       string
 	ConfigFile string
 	TS         string
+	Storage    string
 }
 
 func init() {
-	CmdRemove.PersistentFlags().StringVar(&removeCfg.Name, "n", "arangocado", "backup name")
+	CmdRemove.PersistentFlags().StringVar(&removeCfg.Name, "name", "arangocado", "backup name")
 	CmdRemove.PersistentFlags().StringVar(&removeCfg.TS, "ts", "", "backup timestamp")
 	CmdRemove.PersistentFlags().StringVar(&removeCfg.ConfigFile, "config", "config.yaml", "config file")
+	CmdRemove.PersistentFlags().StringVar(&removeCfg.Storage, "storage", "", "backup storage to remove backup")
 }
 
 func runRemove(c *cobra.Command, args []string) {
@@ -31,9 +33,9 @@ func runRemove(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to load config", err)
 	}
 
-	m, err := newMinioClient(config.S3)
+	sr, err := newStorageRegistry(config)
 	if err != nil {
-		log.Fatalln("Unable to create S3 client", err)
+		log.Fatalln("Unable to create storages", err)
 	}
 
 	backup := config.GetBackup(removeCfg.Name)
@@ -43,9 +45,12 @@ func runRemove(c *cobra.Command, args []string) {
 
 	ctx := context.Background()
 
-	b := newBackup(*backup, config.S3, m)
+	b, err := newBackup(*backup, sr)
+	if err != nil {
+		log.Fatalln("Unable to init backup", err)
+	}
 
-	if err := b.Remove(ctx, []string{removeCfg.TS}); err != nil {
+	if err := b.Remove(ctx, removeCfg.Storage, []string{removeCfg.TS}); err != nil {
 		log.Fatalln("Unable to remove backups", err)
 	}
 }

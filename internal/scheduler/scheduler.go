@@ -7,7 +7,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/MisterLaker/arangocado/internal/backup"
+	"github.com/MisterLaker/arangocado/internal/backups"
 )
 
 type Scheduler struct {
@@ -27,39 +27,42 @@ func New(checkIterval time.Duration, backups []*BackupSchedule) *Scheduler {
 }
 
 func (s *Scheduler) Run(ctx context.Context) {
+	ticker := time.NewTicker(s.checkIterval)
+
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case t := <-ticker.C:
+			s.runBackups(ctx, t)
+		}
+	}
+}
+
+func (s *Scheduler) runBackups(ctx context.Context, t time.Time) {
+	items := s.backups.Filter(t)
+
+	for _, b := range items {
+		log.Println("run backup", b.Name, "time: ", t)
+
+		if err := b.Dump(ctx, &backups.DumpOptions{}); err != nil {
+			log.Println("Unable to run backup", err)
 		}
 
-		t := time.Now()
-
-		items := s.backups.Filter(t)
-
-		for _, b := range items {
-			log.Println("run backup", b.Name)
-
-			if err := b.Run(ctx); err != nil {
-				log.Println("Unable to run backup", err)
-			}
-
-			if err := b.CleanUp(ctx); err != nil {
-				log.Println("Unable to clean up backups", err)
-			}
-
-			b.SetNextUpdate(t)
-
-			log.Println("backup", b.Name, "nextUpdateAt", b.NextUpdateAt)
+		if err := b.CleanUp(ctx); err != nil {
+			log.Println("Unable to clean up backups", err)
 		}
 
-		time.Sleep(s.checkIterval)
+		b.SetNextUpdate(t)
+
+		log.Println("backup", b.Name, "nextUpdateAt", b.NextUpdateAt)
 	}
 }
 
 type BackupSchedule struct {
-	*backup.Backup
+	*backups.Backup
 	Schedule     cron.Schedule
 	NextUpdateAt time.Time
 }

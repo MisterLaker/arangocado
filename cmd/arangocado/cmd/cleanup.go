@@ -7,15 +7,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var CmdCleaUp = &cobra.Command{
+var CmdCleanUp = &cobra.Command{
 	Use:   "cleanup",
 	Short: "remove old backups",
 	Run:   runCleanUp,
 }
 
 func init() {
-	CmdCleaUp.PersistentFlags().StringVar(&cfg.Name, "n", "arangocado", "backup name")
-	CmdCleaUp.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "config.yaml", "config file")
+	CmdCleanUp.PersistentFlags().StringVar(&cfg.Name, "name", "arangocado", "backup name")
+	CmdCleanUp.PersistentFlags().StringVar(&cfg.ConfigFile, "config", "config.yaml", "config file")
+	CmdCleanUp.PersistentFlags().StringSliceVar(&cfg.Storages, "storage", []string{}, "backup storage to remove backup")
 }
 
 func runCleanUp(c *cobra.Command, args []string) {
@@ -24,9 +25,9 @@ func runCleanUp(c *cobra.Command, args []string) {
 		log.Fatalln("Unable to load config", err)
 	}
 
-	m, err := newMinioClient(config.S3)
+	sr, err := newStorageRegistry(config)
 	if err != nil {
-		log.Fatalln("Unable to create S3 client", err)
+		log.Fatalln("Unable to create storages", err)
 	}
 
 	backup := config.GetBackup(cfg.Name)
@@ -36,9 +37,12 @@ func runCleanUp(c *cobra.Command, args []string) {
 
 	ctx := context.Background()
 
-	b := newBackup(*backup, config.S3, m)
+	b, err := newBackup(*backup, sr)
+	if err != nil {
+		log.Fatalln("Unable to init backup", err)
+	}
 
-	if err := b.CleanUp(ctx); err != nil {
+	if err := b.CleanUp(ctx, cfg.Storages...); err != nil {
 		log.Fatalln("Unable to remove backups", err)
 	}
 }
