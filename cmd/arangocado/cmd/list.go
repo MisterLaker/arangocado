@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"log"
+	"log/slog"
 
 	"github.com/spf13/cobra"
 )
@@ -55,7 +56,7 @@ func runList(c *cobra.Command, args []string) {
 			log.Fatalln("Unable to init backup", err)
 		}
 
-		log.Printf("name: %s\n", b.Name)
+		slog.Info("backup", slog.String("name", b.Name))
 
 		if err := b.List(ctx, cfg.Storages...); err != nil {
 			log.Fatalln("Unable to get list if backups", err)

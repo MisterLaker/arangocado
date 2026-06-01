@@ -45,7 +45,7 @@ type Config struct {
 
 func (c *Config) GetBackup(name string) *Backup {
 	for _, b := range c.Backups {
-		if b.Backup.Name == name {
+		if b.Name == name {
 			return &b.Backup
 		}
 	}
@@ -69,7 +69,7 @@ func loadConfig(path string) (*Config, error) {
 	defaults.SetDefaults(&conf)
 
 	for key := range conf.Backups {
-		conf.Backups[key].Backup.CacheDir = conf.CacheDir
+		conf.Backups[key].CacheDir = conf.CacheDir
 
 	}
 
