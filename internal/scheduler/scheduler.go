@@ -56,8 +56,6 @@ func (s *Scheduler) runBackups(ctx context.Context, t time.Time) {
 		}
 
 		b.SetNextUpdate(t)
-
-		slog.Info("backup scheduled", slog.String("name", b.Name), slog.Time("next_update_at", b.NextUpdateAt))
 	}
 }
 
@@ -69,6 +67,8 @@ type BackupSchedule struct {
 
 func (b *BackupSchedule) SetNextUpdate(t time.Time) {
 	b.NextUpdateAt = b.Schedule.Next(t)
+
+	slog.Info("backup scheduled", slog.String("name", b.Name), slog.Time("next_update", b.NextUpdateAt))
 }
 
 type timeList []*BackupSchedule
