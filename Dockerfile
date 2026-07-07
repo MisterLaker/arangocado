@@ -1,15 +1,15 @@
-FROM arangodb/arangodb:3.11.8 AS arango
+FROM arangodb:3.12.9 AS arango
 
-FROM golang:1.22.1-bookworm AS devel
+FROM golang:1.26.2-trixie AS devel
 
 COPY --from=arango /usr/bin/arangodump /usr/bin
 COPY --from=arango /usr/bin/arangorestore /usr/bin
 COPY --from=arango /etc/arangodb3/arangodump.conf /etc/arangodb3/arangodump.conf
 COPY --from=arango /etc/arangodb3/arangorestore.conf /etc/arangodb3/arangorestore.conf
 
-ENV APP_PATH /opt/arangocado
+ENV APP_PATH=/opt/arangocado
 
-ENV LINTER_VERSION v1.56.2
+ENV LINTER_VERSION=v2.11.3
 
 RUN set -ex \
     && curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin $LINTER_VERSION
@@ -23,7 +23,7 @@ COPY . $APP_PATH
 
 RUN make build
 
-FROM alpine:3.18
+FROM alpine:3.23
 
 RUN apk --no-cache add ca-certificates
 

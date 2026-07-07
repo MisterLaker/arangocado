@@ -55,22 +55,22 @@ affinity: {}
 checkInterval: "10s"
 cacheDir: "/tmp"
 
-backups:
-  - name:
-    schedule: "30 * * * *"
-    host: "http+tcp://127.0.0.1:8529"
-    database:
-    user:
-    password:
-    historySize: 5
-    storages:
-      - local
+backups: []
+  # - name:
+  #   schedule: "30 * * * *"
+  #   host: "http+tcp://127.0.0.1:8529"
+  #   database:
+  #   user:
+  #   password:
+  #   historySize: 5
+  #   storages:
+  #     - local
 
-storages:
-  local:
-    endpoint: ""
-    accessKey: ""
-    secretKey: ""
-    bucket: ""
-    useSSL: true
-    schedule: "0 */4 * * *"
+storages: {}
+  # local:
+  #   endpoint: ""
+  #   accessKey: ""
+  #   secretKey: ""
+  #   bucket: ""
+  #   useSSL: true
+  #   schedule: "0 */4 * * *"

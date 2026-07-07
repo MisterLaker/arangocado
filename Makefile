@@ -18,7 +18,11 @@ build:
 test:
 	@go test -v ./...
 
-container: version ?= 0.1.0
+.PHONY: lint
+lint:
+	@golangci-lint run -v --timeout=5m
+
+container: version ?= 0.1.1
 container:
 	docker-buildx build \
 		--platform linux/amd64,linux/arm64/v8 \

@@ -3,7 +3,7 @@ package backups
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 )
@@ -69,7 +69,7 @@ func (b *ArangoDB) Restore(ctx context.Context, options *RestoreOptions) error {
 		"include-system-collections": true,
 	}
 
-	log.Println("arangorestore", "database:", db, "cache dir:", options.CacheDir)
+	slog.Info("arangorestore", slog.String("database", db), slog.String("cache_dir", options.CacheDir))
 
 	cmd := exec.CommandContext(ctx, "arangorestore", makeCommandArgs(args)...)
 

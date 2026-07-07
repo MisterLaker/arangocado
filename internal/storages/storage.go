@@ -3,7 +3,7 @@ package storages
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -40,7 +40,7 @@ func (s *ChunkStorage) Upload(ctx context.Context, backup, db, ts, cacheDir stri
 	ln := len(files)
 	chunkSize := (ln + s.Workers - 1) / s.Workers
 
-	log.Println("upload files ", "files: ", ln, "chunk_size: ", chunkSize)
+	slog.Info("upload files", slog.Int("files", ln), slog.Int("chunk_size", chunkSize))
 
 	g, ctx := errgroup.WithContext(ctx)
 
@@ -64,7 +64,7 @@ func (s *ChunkStorage) Download(ctx context.Context, cacheDir string, files []st
 	ln := len(files)
 	chunkSize := (ln + s.Workers - 1) / s.Workers
 
-	log.Println("downloading files: ", ln, "chunk_size: ", chunkSize)
+	slog.Info("downloading files", slog.Int("files", ln), slog.Int("chunk_size", chunkSize))
 
 	g, ctx := errgroup.WithContext(ctx)
 

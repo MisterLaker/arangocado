@@ -2,7 +2,7 @@ package scheduler
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -45,19 +45,17 @@ func (s *Scheduler) runBackups(ctx context.Context, t time.Time) {
 	items := s.backups.Filter(t)
 
 	for _, b := range items {
-		log.Println("run backup", b.Name, "time: ", t)
+		slog.Info("run backup", slog.String("name", b.Name), slog.Time("time", t))
 
 		if err := b.Dump(ctx, &backups.DumpOptions{}); err != nil {
-			log.Println("Unable to run backup", err)
+			slog.Error("unable to run backup", slog.String("name", b.Name), slog.Any("err", err))
 		}
 
 		if err := b.CleanUp(ctx); err != nil {
-			log.Println("Unable to clean up backups", err)
+			slog.Error("unable to clean up backups", slog.String("name", b.Name), slog.Any("err", err))
 		}
 
 		b.SetNextUpdate(t)
-
-		log.Println("backup", b.Name, "nextUpdateAt", b.NextUpdateAt)
 	}
 }
 
@@ -69,6 +67,8 @@ type BackupSchedule struct {
 
 func (b *BackupSchedule) SetNextUpdate(t time.Time) {
 	b.NextUpdateAt = b.Schedule.Next(t)
+
+	slog.Info("backup scheduled", slog.String("name", b.Name), slog.Time("next_update", b.NextUpdateAt))
 }
 
 type timeList []*BackupSchedule

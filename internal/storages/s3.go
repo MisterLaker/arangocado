@@ -3,7 +3,7 @@ package storages
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"time"
@@ -21,15 +21,14 @@ func (s *S3) Upload(ctx context.Context, backup, db, key, cacheDir string, files
 		path := filepath.Join(cacheDir, name)
 		objectName := fmt.Sprintf("%s/%s-%s/%s", backup, db, key, name)
 
-		log.Println("file: ", path)
-		log.Println("path: ", objectName)
+		slog.Info("uploading file", slog.String("path", path), slog.String("object", objectName))
 
 		_, err := s.Minio.FPutObject(ctx, s.Bucket, objectName, path, minio.PutObjectOptions{})
 		if err != nil {
 			return fmt.Errorf("s3: %w", err)
 		}
 
-		log.Println("Successfully uploaded file: ", path)
+		slog.Info("successfully uploaded file", slog.String("path", path))
 	}
 
 	return nil
@@ -45,15 +44,14 @@ func (s *S3) Download(ctx context.Context, cacheDir string, files []string) erro
 
 		path := fmt.Sprintf("%s/%s", cacheDir, localPath)
 
-		log.Println("file: ", path)
-		log.Println("path: ", name)
+		slog.Info("downloading file", slog.String("path", path), slog.String("object", name))
 
 		err := s.Minio.FGetObject(ctx, s.Bucket, name, path, minio.GetObjectOptions{})
 		if err != nil {
 			return fmt.Errorf("s3: %w", err)
 		}
 
-		log.Println("Successfully downloaded file: ", path)
+		slog.Info("successfully downloaded file", slog.String("path", path))
 	}
 
 	return nil

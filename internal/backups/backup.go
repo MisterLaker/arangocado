@@ -3,7 +3,7 @@ package backups
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -102,7 +102,7 @@ func (b *Backup) Upload(ctx context.Context, t time.Time, key, cacheDir string, 
 		return err
 	}
 
-	log.Println("upload files ", key, "files: ", len(files))
+	slog.Info("upload files", slog.String("key", key), slog.Int("files", len(files)))
 
 	storages := options.Storages
 
@@ -117,7 +117,7 @@ func (b *Backup) Upload(ctx context.Context, t time.Time, key, cacheDir string, 
 		}
 
 		if !options.SkipSchedule && !storage.CanUpload(t) {
-			log.Println("skip backup upload: ", b.Name, " storage: ", s)
+			slog.Info("skip backup upload", slog.String("backup", b.Name), slog.String("storage", s))
 
 			continue
 		}
@@ -141,7 +141,7 @@ func (b *Backup) Download(ctx context.Context, storage, key string) error {
 		return err
 	}
 
-	log.Println("downloading: ", key, "files: ", len(files))
+	slog.Info("downloading", slog.String("key", key), slog.Int("files", len(files)))
 
 	return s.Download(ctx, b.CacheDir, files)
 }
@@ -158,7 +158,7 @@ func (b *Backup) Remove(ctx context.Context, storageName string, keys []string) 
 			return err
 		}
 
-		log.Println("removing: ", k, "files: ", len(files))
+		slog.Info("removing", slog.String("key", k), slog.Int("files", len(files)))
 
 		if err := storage.Remove(ctx, files); err != nil {
 			return err
@@ -170,7 +170,7 @@ func (b *Backup) Remove(ctx context.Context, storageName string, keys []string) 
 
 func pprint(items []string) {
 	for _, k := range items {
-		log.Printf("\t- %s\n", k)
+		slog.Info("item", slog.String("name", k))
 	}
 }
 
@@ -205,11 +205,11 @@ func (b *Backup) CleanUp(ctx context.Context, storages ...string) error {
 			removeList = backups[b.HistorySize:]
 		}
 
-		log.Println("backups storage: ", s)
+		slog.Info("backups in storage", slog.String("storage", s))
 		pprint(backups)
 
 		if len(removeList) > 0 {
-			log.Println("backups to remove: ")
+			slog.Info("backups to remove", slog.String("storage", s))
 			pprint(removeList)
 
 			if err := b.Remove(ctx, s, removeList); err != nil {
@@ -246,7 +246,7 @@ func (b *Backup) List(ctx context.Context, storages ...string) error {
 			// sort by date
 			sort.Sort(sort.Reverse(sort.StringSlice(backups)))
 
-			log.Println("storage: ", storageName)
+			slog.Info("storage", slog.String("storage", storageName))
 			pprint(backups)
 
 			return nil
